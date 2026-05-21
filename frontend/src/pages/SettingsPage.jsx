@@ -1,8 +1,78 @@
-import React from "react";
+import React, { useState } from "react";
 
 import DashboardLayout from "../components/DashboardLayout";
 
 function SettingsPage() {
+
+  const [form, setForm] = useState({
+    login: "",
+    password: "",
+    server: ""
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  const [message, setMessage] = useState("");
+
+  const [error, setError] = useState("");
+
+  const handleChange = (e) => {
+
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const connectMT5 = async () => {
+
+    setLoading(true);
+
+    setMessage("");
+
+    setError("");
+
+    try {
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/connect-mt5",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+            login: form.login,
+            password: form.password,
+            server: form.server
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.detail || "Connection failed"
+        );
+      }
+
+      setMessage(
+        "MT5 account connected successfully"
+      );
+
+    } catch (err) {
+
+      setError(err.message);
+
+    } finally {
+
+      setLoading(false);
+    }
+  };
 
   return (
 
@@ -17,22 +87,27 @@ function SettingsPage() {
         <div style={settingsCard}>
 
           <div style={settingItem}>
-            <label>Email Address</label>
+            <label>MT5 Login</label>
 
             <input
               type="text"
-              value="admin@goldbot.com"
+              name="login"
+              value={form.login}
+              onChange={handleChange}
+              placeholder="Enter MT5 Login"
               style={inputStyle}
-              readOnly
             />
           </div>
 
           <div style={settingItem}>
-            <label>Broker</label>
+            <label>MT5 Password</label>
 
             <input
-              type="text"
-              value="Exness MT5"
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Enter MT5 Password"
               style={inputStyle}
             />
           </div>
@@ -42,13 +117,36 @@ function SettingsPage() {
 
             <input
               type="text"
-              value="Live Server"
+              name="server"
+              value={form.server}
+              onChange={handleChange}
+              placeholder="Exness-MT5Trial9"
               style={inputStyle}
             />
           </div>
 
-          <button style={saveButton}>
-            Save Changes
+          {message && (
+            <div style={successBox}>
+              {message}
+            </div>
+          )}
+
+          {error && (
+            <div style={errorBox}>
+              {error}
+            </div>
+          )}
+
+          <button
+            style={saveButton}
+            onClick={connectMT5}
+            disabled={loading}
+          >
+            {
+              loading
+                ? "Connecting..."
+                : "Connect MT5"
+            }
           </button>
 
         </div>
@@ -88,7 +186,8 @@ const inputStyle = {
   background: "#020617",
   border: "1px solid #334155",
   borderRadius: "10px",
-  color: "white"
+  color: "white",
+  fontSize: "14px"
 };
 
 const saveButton = {
@@ -98,7 +197,26 @@ const saveButton = {
   borderRadius: "12px",
   color: "white",
   fontWeight: "700",
-  cursor: "pointer"
+  cursor: "pointer",
+  width: "100%"
+};
+
+const successBox = {
+  background: "#064e3b",
+  color: "#6ee7b7",
+  padding: "14px",
+  borderRadius: "10px",
+  marginBottom: "20px",
+  fontSize: "14px"
+};
+
+const errorBox = {
+  background: "#7f1d1d",
+  color: "#fca5a5",
+  padding: "14px",
+  borderRadius: "10px",
+  marginBottom: "20px",
+  fontSize: "14px"
 };
 
 export default SettingsPage;

@@ -6,8 +6,14 @@ import os
 from datetime import datetime, timedelta, timezone
 
 class HardProductionEngine:
-    def __init__(self, account_id, password, server, risk_per_trade=0.01):
-        self.account = account_id
+    def __init__(
+    self,
+    login,
+    password,
+    server,
+    risk_per_trade=0.01
+):
+        self.login = login
         self.password = password
         self.server = server
         self.risk_per_trade = risk_per_trade
@@ -34,7 +40,11 @@ class HardProductionEngine:
 
     def connect(self):
         if not mt5.initialize(): return False
-        if not mt5.login(self.account, self.password, self.server): return False
+        if not mt5.login(
+    int(self.login),
+    self.password,
+    self.server
+): return False
         return True
 
     # --- 2. MARKET SAFEGUARD & SLIPPAGE MODEL ---
@@ -149,38 +159,75 @@ class HardProductionEngine:
         return pos_count + ord_count
 
 # --- 6. DRIVER LOOP ---
-if __name__ == "__main__":
-    SYMBOLS = ["XAUUSDm", "EURUSDm", "GBPUSDm"]
-    
+def start_strategy(
+    login,
+    password,
+    server
+):
+
+    SYMBOLS = [
+        "XAUUSDm",
+        "EURUSDm",
+        "GBPUSDm"
+    ]
+
     bot = HardProductionEngine(
-        435857096,
-        "Iloveliz22$$",
-        "Exness-MT5Trial9"
+        account_id,
+        password,
+        server
     )
-    
+
     if bot.connect():
-        print("🚀 HardProduction Engine v4.0 Active.")
+
+        print("🚀 HardProduction Engine Active.")
+
         try:
+
             while bot.is_active:
+
                 for pair in SYMBOLS:
-                    rates = mt5.copy_rates_from_pos(pair, mt5.TIMEFRAME_M15, 0, 1)
-                    if not rates: continue
-                    
-                    # New Candle & State Save
+
+                    rates = mt5.copy_rates_from_pos(
+                        pair,
+                        mt5.TIMEFRAME_M15,
+                        0,
+                        1
+                    )
+
+                    if not rates:
+                        continue
+
                     if bot.last_candle_time.get(pair) != rates[0][0]:
+
                         bot.last_candle_time[pair] = int(rates[0][0])
-                        bot._save_state() 
-                        
+
+                        bot._save_state()
+
                         if bot.is_market_safe(pair):
+
                             if bot.manage_active_exposure() < 3:
+
                                 signal = bot.get_institutional_signal(pair)
+
                                 if signal:
-                                    # --- SIGNAL DISCOVERY LOG ---
-                                    print(f"💎 SIGNAL FOUND: {pair} {signal}")
-                                    bot.execute_limit_order(pair, signal)
-                                    
+
+                                    print(
+                                        f"💎 SIGNAL FOUND: {pair} {signal}"
+                                    )
+
+                                    bot.execute_limit_order(
+                                        pair,
+                                        signal
+                                    )
+
                 time.sleep(15)
-        except KeyboardInterrupt:
-            print("Shutdown.")
+
+        except Exception as e:
+
+            print(f"❌ Strategy Error: {e}")
+
         finally:
+
             mt5.shutdown()
+
+            

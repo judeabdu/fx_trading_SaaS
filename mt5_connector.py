@@ -1,27 +1,33 @@
 import MetaTrader5 as mt5
-import config
 
-def connect_mt5():
-    # Shut down any existing sessions first to clear errors
+def connect_mt5(login, password, server):
+
+    # Shutdown previous sessions
     mt5.shutdown()
-    
+
+    # Initialize MT5
     if not mt5.initialize():
+
         print(f"❌ MT5 initialization failed: {mt5.last_error()}")
+
         return False
 
-    # Attempt Login
+    # Login
     authorized = mt5.login(
-        login=int(config.LOGIN),
-        password=config.PASSWORD,
-        server=config.SERVER
+        login=int(login),
+        password=password,
+        server=server
     )
 
     if not authorized:
-        # This will tell us EXACTLY why it failed
+
         error = mt5.last_error()
-        print(f"❌ Login failed for {config.LOGIN} on {config.SERVER}")
+
+        print(f"❌ Login failed for {login} on {server}")
         print(f"❌ Error Detail: {error}")
+
         return False
 
-    print(f"✅ SUCCESS: Logged into {config.SERVER}")
+    print(f"✅ SUCCESS: Logged into {server}")
+
     return True
