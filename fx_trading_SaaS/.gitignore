@@ -1,0 +1,8 @@
+node_modules/
+venv/
+.env
+__pycache__/
+trade_history.json
+bot_state.json
+dist/
+build/
