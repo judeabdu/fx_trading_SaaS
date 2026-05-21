@@ -23,11 +23,6 @@ function DashboardPage() {
     try {
 
       const response = await fetch(
-<<<<<<< HEAD
-        `${import.meta.env.VITE_API_URL}/bot-status"
-=======
-        `${import.meta.env.VITE_API_URL}/bot-status`"
->>>>>>> 9499211bcc2de4e7d74d646cab329c832a9300c2
       );
 
       const data = await response.json();
@@ -54,11 +49,7 @@ function DashboardPage() {
     try {
 
       const response = await fetch(
-<<<<<<< HEAD
-        `${import.meta.env.VITE_API_URL}/start-bot",
-=======
-        `${import.meta.env.VITE_API_URL}/start-bot`",
->>>>>>> 9499211bcc2de4e7d74d646cab329c832a9300c2
+`${import.meta.env.VITE_API_URL}/start-bot`,
         {
           method: "POST"
         }
@@ -101,11 +92,7 @@ function DashboardPage() {
     try {
 
       const response = await fetch(
-<<<<<<< HEAD
-        `${import.meta.env.VITE_API_URL}/stop-bot",
-=======
-        `${import.meta.env.VITE_API_URL}/stop-bot`",
->>>>>>> 9499211bcc2de4e7d74d646cab329c832a9300c2
+`${import.meta.env.VITE_API_URL}/stop-bot`,
         {
           method: "POST"
         }

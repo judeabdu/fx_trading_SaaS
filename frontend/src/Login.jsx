@@ -28,8 +28,8 @@ function Login() {
     try {
 
       const endpoint = isRegister
-        ? `${import.meta.env.VITE_API_URL}/register`"
-        : `${import.meta.env.VITE_API_URL}/login`";
+        ? `${import.meta.env.VITE_API_URL}/register`
+        : `${import.meta.env.VITE_API_URL}/login`;
 
       const response = await fetch(
         endpoint,

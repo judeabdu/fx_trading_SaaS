@@ -20,7 +20,7 @@ function RegisterPage() {
     try {
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/register`",
+        `${import.meta.env.VITE_API_URL}/register`,
         {
           method: "POST",
           headers: {
@@ -44,11 +44,7 @@ function RegisterPage() {
 
       alert("Registration successful");
 
-<<<<<<< HEAD
-      navigate("/login`");
-=======
-      navigate("/login`);
->>>>>>> 9499211bcc2de4e7d74d646cab329c832a9300c2
+navigate("/login");
 
     } catch (err) {
 
@@ -120,7 +116,7 @@ function RegisterPage() {
           Already have an account?
 
           <Link
-            to="/login`"
+            to="/login"
             style={linkStyle}
           >
             Login

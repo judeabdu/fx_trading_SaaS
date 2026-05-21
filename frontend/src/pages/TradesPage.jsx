@@ -18,7 +18,7 @@ function TradesPage() {
       try {
 
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/status`"
+          `${import.meta.env.VITE_API_URL}/status`
         );
 
         const data = await response.json();
