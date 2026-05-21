@@ -172,7 +172,7 @@ def start_strategy(
     ]
 
     bot = HardProductionEngine(
-        account_id,
+        login,
         password,
         server
     )
