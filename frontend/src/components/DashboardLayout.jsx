@@ -20,13 +20,13 @@ function DashboardLayout({ children }) {
   const handleLogout = () => {
     localStorage.removeItem("goldbot_token");
     localStorage.removeItem("goldbot_user");
-    window.location.href = "/login";
+    window.location.href = "/login`";
   };
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:8000/status");
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/status`);
         const data = await response.json();
         setStats(prev => ({ ...prev, ...data }));
         if (data.active_trades) setTrades(data.active_trades);

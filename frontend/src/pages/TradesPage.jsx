@@ -18,7 +18,7 @@ function TradesPage() {
       try {
 
         const response = await fetch(
-          "http://127.0.0.1:8000/status"
+          `${import.meta.env.VITE_API_URL}/status`"
         );
 
         const data = await response.json();

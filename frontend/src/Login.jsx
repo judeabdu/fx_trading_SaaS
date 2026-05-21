@@ -28,8 +28,8 @@ function Login() {
     try {
 
       const endpoint = isRegister
-        ? "http://127.0.0.1:8000/register"
-        : "http://127.0.0.1:8000/login";
+        ? `${import.meta.env.VITE_API_URL}/register`"
+        : `${import.meta.env.VITE_API_URL}/login`";
 
       const response = await fetch(
         endpoint,
