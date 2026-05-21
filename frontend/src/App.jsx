@@ -5,7 +5,7 @@ import {
   Navigate
 } from "react-router-dom";
 
-import Login from "./Login";
+import Login from "./login`";
 
 import DashboardPage from "./pages/DashboardPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -25,7 +25,7 @@ function App() {
     <Routes>
 
       <Route
-        path="/login"
+        path="/login`"
         element={
           token
             ? <Navigate to="/" />
@@ -38,7 +38,7 @@ function App() {
         element={
           token
             ? <DashboardPage />
-            : <Navigate to="/login" />
+            : <Navigate to="/login`" />
         }
       />
 
@@ -47,7 +47,7 @@ function App() {
         element={
           token
             ? <AnalyticsPage />
-            : <Navigate to="/login" />
+            : <Navigate to="/login`" />
         }
       />
 
@@ -56,7 +56,7 @@ function App() {
   element={
     token
       ? <TradesPage />
-      : <Navigate to="/login" />
+      : <Navigate to="/login`" />
   }
 />
 
@@ -65,7 +65,7 @@ function App() {
   element={
     token
       ? <HistoryPage />
-      : <Navigate to="/login" />
+      : <Navigate to="/login`" />
   }
 />
 
@@ -74,7 +74,7 @@ function App() {
   element={
     token
       ? <BillingPage />
-      : <Navigate to="/login" />
+      : <Navigate to="/login`" />
   }
 />
 
@@ -83,7 +83,7 @@ function App() {
   element={
     token
       ? <SettingsPage />
-      : <Navigate to="/login" />
+      : <Navigate to="/login`" />
   }
 />
 

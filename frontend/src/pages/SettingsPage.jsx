@@ -35,7 +35,7 @@ function SettingsPage() {
     try {
 
       const response = await fetch(
-        "http://127.0.0.1:8000/connect-mt5",
+        `${import.meta.env.VITE_API_URL}/connect-mt5`",
         {
           method: "POST",
 
