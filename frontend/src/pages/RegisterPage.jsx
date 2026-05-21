@@ -44,7 +44,11 @@ function RegisterPage() {
 
       alert("Registration successful");
 
+<<<<<<< HEAD
       navigate("/login`");
+=======
+      navigate("/login`);
+>>>>>>> 9499211bcc2de4e7d74d646cab329c832a9300c2
 
     } catch (err) {
 

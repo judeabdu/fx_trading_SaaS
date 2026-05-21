@@ -38,7 +38,11 @@ function App() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
+<<<<<<< HEAD
         const response = await fetch(`${import.meta.env.VITE_API_URL}/status`");
+=======
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/status`);
+>>>>>>> 9499211bcc2de4e7d74d646cab329c832a9300c2
         const data = await response.json();
         setStats(prev => ({ ...prev, ...data }));
         if (data.active_trades) setTrades(data.active_trades);
