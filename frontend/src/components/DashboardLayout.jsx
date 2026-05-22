@@ -141,7 +141,15 @@ const MetricBox = ({ icon, label, value, currency, highlight }) => (
 
 // --- GLOBAL LAYOUT STYLES ---
 const layoutContainer = { display: "flex", minHeight: "100vh", background: "#020617", color: "white", fontFamily: "'Inter', system-ui, sans-serif" };
-const mainContent = { flex: 1, marginLeft: "260px", padding: "40px" };
+const mainContent = {
+  flex: 1,
+  marginLeft: window.innerWidth < 768 ? "70px" : "260px",
+  padding: window.innerWidth < 768 ? "15px" : "40px",
+  width: "100%",
+  minWidth: 0,
+  overflowX: "hidden",
+  boxSizing: "border-box"
+};
 const metricsGrid = { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", marginBottom: "32px" };
 const metricBoxStyle = { background: "#0f172a", padding: "24px", borderRadius: "16px", border: "1px solid #1e293b" };
 const metricTop = { display: "flex", justifyContent: "space-between", alignItems: "center" };
