@@ -140,23 +140,67 @@ const MetricBox = ({ icon, label, value, currency, highlight }) => (
 );
 
 // --- GLOBAL LAYOUT STYLES ---
-const layoutContainer = { display: "flex", minHeight: "100vh", background: "#020617", color: "white", fontFamily: "'Inter', system-ui, sans-serif" };
+const layoutContainer = {
+  display: "flex",
+  width: "100%",
+  minHeight: "100vh",
+  overflowX: "hidden",
+  background: "#020617",
+  color: "white",
+  fontFamily: "'Inter', system-ui, sans-serif"
+};
 const mainContent = {
   flex: 1,
-  marginLeft: window.innerWidth < 768 ? "70px" : "260px",
-  padding: window.innerWidth < 768 ? "15px" : "40px",
+  marginLeft:
+    window.innerWidth < 768
+      ? "0"
+      : "260px",
+
+  padding:
+    window.innerWidth < 768
+      ? "16px"
+      : window.innerWidth < 1024
+        ? "24px"
+        : "40px",
+
   width: "100%",
   minWidth: 0,
   overflowX: "hidden",
   boxSizing: "border-box"
 };
-const metricsGrid = { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", marginBottom: "32px" };
+const metricsGrid = {
+  display: "grid",
+  gridTemplateColumns:
+    window.innerWidth < 768
+      ? "1fr"
+      : window.innerWidth < 1024
+        ? "repeat(2, 1fr)"
+        : "repeat(3, 1fr)",
+
+  gap: "24px",
+  marginBottom: "32px"
+};
 const metricBoxStyle = { background: "#0f172a", padding: "24px", borderRadius: "16px", border: "1px solid #1e293b" };
 const metricTop = { display: "flex", justifyContent: "space-between", alignItems: "center" };
 const metricLabel = { fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: "600" };
 const currStyle = { fontSize: "14px", color: "#475569", marginLeft: "2px" };
-const chartsGrid = { display: "grid", gridTemplateColumns: "1.6fr 0.4fr", gap: "24px" };
-const tableContainer = { background: "#0f172a", borderRadius: "16px", border: "1px solid #1e293b", padding: "24px" };
+const chartsGrid = {
+  display: "grid",
+  gridTemplateColumns:
+    window.innerWidth < 1024
+      ? "1fr"
+      : "1.6fr 0.4fr",
+  gap: "24px"
+};
+const tableContainer = {
+  background: "#0f172a",
+  borderRadius: "16px",
+  border: "1px solid #1e293b",
+  padding: window.innerWidth < 768 ? "14px" : "24px",
+  overflowX: "auto",
+  width: "100%",
+  boxSizing: "border-box"
+};
 const sectionHeader = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" };
 const refreshBtn = { background: "#1e293b", border: "none", color: "#fbbf24", padding: "6px 14px", borderRadius: "8px", fontSize: "11px", fontWeight: "600", cursor: "pointer" };
 const tableTitle = { margin: 0, fontSize: "16px", fontWeight: "600" };
