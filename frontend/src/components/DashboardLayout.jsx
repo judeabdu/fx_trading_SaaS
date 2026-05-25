@@ -4,6 +4,10 @@ import Sidebar from "./Sidebar";
 function DashboardLayout({ children }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const handleLogout = () => {
+  localStorage.removeItem("goldbot_token");
+  window.location.href = "/login";
+};
 
   return (
 
@@ -102,7 +106,7 @@ const overlay = {
 
 const mainContent = {
   flex: 1,
-  marginLeft: window.innerWidth < 768 ? "20" : "260px",
+  marginLeft: window.innerWidth < 768 ? "20px" : "260px",
   padding: window.innerWidth < 768 ? "16px" : "30px",
   width: "100%",
   minHeight: "100vh",
