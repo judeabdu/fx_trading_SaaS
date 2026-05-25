@@ -116,16 +116,21 @@ const NavItem = ({ icon, label, active, color }) => (
 );
 
 const sidebarStyle = {
-  width: "260px",
+  width: window.innerWidth < 768 ? "70px" : "260px",
   background: "#020617",
   borderRight: "1px solid #1e293b",
   display: "flex",
   flexDirection: "column",
-  padding: "30px 20px",
+  padding: window.innerWidth < 768 ? "20px 10px" : "30px 20px",
   position: "fixed",
-  height: "100vh"
+  top: 0,
+  left: 0,
+  height: "100vh",
+  overflowY: "auto",
+  overflowX: "hidden",
+  zIndex: 1000,
+  boxSizing: "border-box"
 };
-
 const logoArea = { display: "flex", alignItems: "center", gap: "12px", marginBottom: "40px" };
 const judeLogoSmall = { background: "#fbbf24", color: "#000", width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", boxShadow: "0 0 20px rgba(251, 191, 36, 0.2)" };
 const sidebarBrand = { fontSize: "20px", fontWeight: "800", margin: 0, letterSpacing: "-0.5px" };

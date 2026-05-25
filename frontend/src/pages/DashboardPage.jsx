@@ -23,8 +23,8 @@ function DashboardPage() {
     try {
 
       const response = await fetch(
-        "http://127.0.0.1:8000/bot-status"
-      );
+  `${import.meta.env.VITE_API_URL}/status`
+);
 
       const data = await response.json();
 
@@ -50,7 +50,7 @@ function DashboardPage() {
     try {
 
       const response = await fetch(
-        "http://127.0.0.1:8000/start-bot",
+`${import.meta.env.VITE_API_URL}/start-bot`,
         {
           method: "POST"
         }
@@ -93,7 +93,7 @@ function DashboardPage() {
     try {
 
       const response = await fetch(
-        "http://127.0.0.1:8000/stop-bot",
+`${import.meta.env.VITE_API_URL}/stop-bot`,
         {
           method: "POST"
         }
@@ -285,7 +285,7 @@ const controlCard = {
   border: "1px solid #1e293b",
   borderRadius: "20px",
   padding: "40px",
-  maxWidth: "700px"
+  maxWidth: "400px"
 };
 
 const cardTitle = {

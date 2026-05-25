@@ -231,7 +231,8 @@ const tableCard = {
   background: "#0f172a",
   border: "1px solid #1e293b",
   borderRadius: "18px",
-  overflow: "hidden"
+  overflowX: "auto",
+  width: "100%"
 };
 
 const tableStyle = {
