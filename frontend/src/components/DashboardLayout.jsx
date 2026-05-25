@@ -48,7 +48,7 @@ const response = await fetch(
 
      <main style={mainContent}>
 
-  <Header stats={stats} handleLogout={handleLogout} />
+  <div style={{color:"white",fontSize:"32px",marginBottom:"20px"}}>Dashboard Loaded</div>
 
   {children}
 
