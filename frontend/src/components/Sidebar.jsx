@@ -116,12 +116,12 @@ const NavItem = ({ icon, label, active, color }) => (
 );
 
 const sidebarStyle = {
-  width: window.innerWidth < 768 ? "70px" : "260px",
+  width: window.innerWidth < 768 ? "100px" : "260px",
   background: "#020617",
   borderRight: "1px solid #1e293b",
   display: "flex",
   flexDirection: "column",
-  padding: window.innerWidth < 768 ? "20px 10px" : "30px 20px",
+  padding: window.innerWidth < 768 ? "20px 15px" : "30px 20px",
   position: "fixed",
   top: 0,
   left: 0,

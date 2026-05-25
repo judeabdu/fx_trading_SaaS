@@ -102,7 +102,7 @@ const overlay = {
 
 const mainContent = {
   flex: 1,
-  marginLeft: window.innerWidth < 768 ? "0" : "260px",
+  marginLeft: window.innerWidth < 768 ? "20" : "260px",
   padding: window.innerWidth < 768 ? "16px" : "30px",
   width: "100%",
   minHeight: "100vh",
