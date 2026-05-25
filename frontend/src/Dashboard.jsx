@@ -32,7 +32,7 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem("goldbot_token");
     localStorage.removeItem("goldbot_user");
-    window.location.href = "/login`";
+    window.location.href = "/login";
   };
 
   useEffect(() => {
@@ -240,7 +240,7 @@ const judeLogoSmall = { background: "#fbbf24", color: "#000", width: "32px", hei
 const sidebarBrand = { fontSize: "20px", fontWeight: "800", margin: 0, letterSpacing: "-0.5px" };
 const navGroup = { display: "flex", flexDirection: "column", gap: "6px" };
 
-const mainContent = { flex: 1, marginLeft: "260px", padding: "40px" };
+const mainContent = { flex: 1, marginLeft: window.innerWidth < 768 ? "0" : "260px", padding: "40px" };
 
 const headerStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "40px" };
 const pageTitle = { fontSize: "26px", fontWeight: "700", margin: 0 };

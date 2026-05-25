@@ -20,7 +20,7 @@ function DashboardLayout({ children }) {
   const handleLogout = () => {
     localStorage.removeItem("goldbot_token");
     localStorage.removeItem("goldbot_user");
-    window.location.href = "/login`";
+    window.location.href = "/login";
   };
 
   useEffect(() => {
@@ -144,7 +144,7 @@ const layoutContainer = {
   display: "flex",
   width: "100%",
   minHeight: "100vh",
-  overflowX: "hidden",
+  overflowX: "hidden", width: "100%", maxWidth: "100%",
   background: "#020617",
   color: "white",
   fontFamily: "'Inter', system-ui, sans-serif"
@@ -165,7 +165,7 @@ const mainContent = {
 
   width: "100%",
   minWidth: 0,
-  overflowX: "hidden",
+  overflowX: "hidden", width: "100%", maxWidth: "100%",
   boxSizing: "border-box"
 };
 const metricsGrid = {
@@ -197,7 +197,7 @@ const tableContainer = {
   borderRadius: "16px",
   border: "1px solid #1e293b",
   padding: window.innerWidth < 768 ? "14px" : "24px",
-  overflowX: "auto",
+  overflowX: "auto", maxWidth: "100%", maxWidth: "100%",
   width: "100%",
   boxSizing: "border-box"
 };

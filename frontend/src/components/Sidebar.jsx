@@ -127,7 +127,7 @@ const sidebarStyle = {
   left: 0,
   height: "100vh",
   overflowY: "auto",
-  overflowX: "hidden",
+  overflowX: "hidden", width: "100%", maxWidth: "100%",
   zIndex: 1000,
   transition: "0.3s ease",
   boxSizing: "border-box"
