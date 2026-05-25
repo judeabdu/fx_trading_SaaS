@@ -123,15 +123,9 @@ const sidebarStyle = {
   flexDirection: "column",
   padding: "30px 20px",
   position: "fixed",
-  top: 0,
-  left: 0,
-  height: "100vh",
-  overflowY: "auto",
-  overflowX: "hidden", width: "100%", maxWidth: "100%",
-  zIndex: 1000,
-  transition: "0.3s ease",
-  boxSizing: "border-box"
+  height: "100vh"
 };
+
 const logoArea = { display: "flex", alignItems: "center", gap: "12px", marginBottom: "40px" };
 const judeLogoSmall = { background: "#fbbf24", color: "#000", width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", boxShadow: "0 0 20px rgba(251, 191, 36, 0.2)" };
 const sidebarBrand = { fontSize: "20px", fontWeight: "800", margin: 0, letterSpacing: "-0.5px" };

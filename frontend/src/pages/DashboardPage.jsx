@@ -23,8 +23,8 @@ function DashboardPage() {
     try {
 
       const response = await fetch(
-  `${import.meta.env.VITE_API_URL}/status`
-);
+        "http://127.0.0.1:8000/bot-status"
+      );
 
       const data = await response.json();
 
@@ -50,7 +50,7 @@ function DashboardPage() {
     try {
 
       const response = await fetch(
-`${import.meta.env.VITE_API_URL}/start-bot`,
+        "http://127.0.0.1:8000/start-bot",
         {
           method: "POST"
         }
@@ -93,7 +93,7 @@ function DashboardPage() {
     try {
 
       const response = await fetch(
-`${import.meta.env.VITE_API_URL}/stop-bot`,
+        "http://127.0.0.1:8000/stop-bot",
         {
           method: "POST"
         }
