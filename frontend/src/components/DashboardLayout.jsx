@@ -22,7 +22,7 @@ function DashboardLayout({ children }) {
     localStorage.removeItem("goldbot_user");
     window.location.href = "/login";
   };
-
+ 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
