@@ -14,7 +14,8 @@ import {
   Bot,
   Cpu,
   ShieldCheck,
-  Wifi
+  Wifi,
+  LineChart
 } from "lucide-react";
 
 function DashboardPage() {
