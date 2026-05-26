@@ -5,9 +5,11 @@ import DashboardLayout from "../components/DashboardLayout";
 function SettingsPage() {
 
   const [form, setForm] = useState({
-    login: "",
-    password: "",
-    server: ""
+    broker_name: "Deriv",
+    api_token: "",
+    app_id: "",
+    symbols: "R_100",
+    risk_per_trade: 1
   });
 
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,7 @@ function SettingsPage() {
     });
   };
 
-  const connectMT5 = async () => {
+  const saveBroker = async () => {
 
     setLoading(true);
 
@@ -35,7 +37,7 @@ function SettingsPage() {
     try {
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/connect-mt5`,
+        `${import.meta.env.VITE_API_URL}/save-broker`,
         {
           method: "POST",
 
@@ -44,9 +46,11 @@ function SettingsPage() {
           },
 
           body: JSON.stringify({
-            login: form.login,
-            password: form.password,
-            server: form.server
+            broker_name: form.broker_name,
+            api_token: form.api_token,
+            app_id: form.app_id,
+            symbols: form.symbols,
+            risk_per_trade: Number(form.risk_per_trade)
           })
         }
       );
@@ -56,12 +60,12 @@ function SettingsPage() {
       if (!response.ok) {
 
         throw new Error(
-          data.detail || "Connection failed"
+          data.detail || "Failed to save broker"
         );
       }
 
       setMessage(
-        "MT5 account connected successfully"
+        "Broker configuration saved successfully"
       );
 
     } catch (err) {
@@ -81,46 +85,72 @@ function SettingsPage() {
       <div style={containerStyle}>
 
         <h1 style={titleStyle}>
-          Account Settings
+          Broker Settings
         </h1>
 
         <div style={settingsCard}>
 
           <div style={settingItem}>
-            <label>MT5 Login</label>
+            <label>Broker Name</label>
 
             <input
               type="text"
-              name="login"
-              value={form.login}
+              name="broker_name"
+              value={form.broker_name}
               onChange={handleChange}
-              placeholder="Enter MT5 Login"
+              placeholder="Deriv"
               style={inputStyle}
             />
           </div>
 
           <div style={settingItem}>
-            <label>MT5 Password</label>
+            <label>Deriv API Token</label>
 
             <input
-              type="password"
-              name="password"
-              value={form.password}
+              type="text"
+              name="api_token"
+              value={form.api_token}
               onChange={handleChange}
-              placeholder="Enter MT5 Password"
+              placeholder="Enter Deriv API Token"
               style={inputStyle}
             />
           </div>
 
           <div style={settingItem}>
-            <label>Trading Server</label>
+            <label>Deriv App ID</label>
 
             <input
               type="text"
-              name="server"
-              value={form.server}
+              name="app_id"
+              value={form.app_id}
               onChange={handleChange}
-              placeholder="Exness-MT5Trial9"
+              placeholder="Enter Deriv App ID"
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={settingItem}>
+            <label>Trading Symbols</label>
+
+            <input
+              type="text"
+              name="symbols"
+              value={form.symbols}
+              onChange={handleChange}
+              placeholder="R_100"
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={settingItem}>
+            <label>Risk Per Trade (%)</label>
+
+            <input
+              type="number"
+              name="risk_per_trade"
+              value={form.risk_per_trade}
+              onChange={handleChange}
+              placeholder="1"
               style={inputStyle}
             />
           </div>
@@ -139,13 +169,13 @@ function SettingsPage() {
 
           <button
             style={saveButton}
-            onClick={connectMT5}
+            onClick={saveBroker}
             disabled={loading}
           >
             {
               loading
-                ? "Connecting..."
-                : "Connect MT5"
+                ? "Saving..."
+                : "Save Broker"
             }
           </button>
 
