@@ -1,27 +1,29 @@
 import React, { useState } from "react";
+
+import { useNavigate } from "react-router-dom";
+
 import Sidebar from "./Sidebar";
 
 function DashboardLayout({ children }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navigate = useNavigate();
+
   const handleLogout = () => {
 
-  localStorage.removeItem("goldbot_token");
+    localStorage.clear();
 
-  localStorage.removeItem("token");
+    sessionStorage.clear();
 
-  localStorage.removeItem("access_token");
+    navigate("/login", { replace: true });
 
-  sessionStorage.clear();
-
-  window.location.href = "/login";
-};
+    window.location.reload();
+  };
 
   return (
 
     <div style={layoutWrapper}>
-
-      {/* MOBILE OVERLAY */}
 
       {
         sidebarOpen && (
@@ -31,8 +33,6 @@ function DashboardLayout({ children }) {
           />
         )
       }
-
-      {/* SIDEBAR */}
 
       <div
         style={{
@@ -46,14 +46,12 @@ function DashboardLayout({ children }) {
               : "translateX(0)"
         }}
       >
-        <Sidebar />
+
+        <Sidebar handleLogout={handleLogout} />
+
       </div>
 
-      {/* MAIN AREA */}
-
       <div style={mainContent}>
-
-        {/* MOBILE TOPBAR */}
 
         {
           window.innerWidth < 768 && (
@@ -69,7 +67,7 @@ function DashboardLayout({ children }) {
               </button>
 
               <h2 style={{ margin: 0 }}>
-                JUDEFX
+                LIGER FX
               </h2>
 
             </div>
@@ -114,8 +112,15 @@ const overlay = {
 
 const mainContent = {
   flex: 1,
-  marginLeft: window.innerWidth < 768 ? "20px" : "260px",
-  padding: window.innerWidth < 768 ? "16px" : "30px",
+  marginLeft: window.innerWidth < 768
+    ? "20px"
+    : "260px",
+
+  padding:
+    window.innerWidth < 768
+      ? "16px"
+      : "30px",
+
   width: "100%",
   minHeight: "100vh",
   overflowX: "hidden",

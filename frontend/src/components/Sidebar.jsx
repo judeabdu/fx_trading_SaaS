@@ -195,7 +195,7 @@ const sidebarStyle = (mobile) => ({
 
   flexDirection: "column",
 
-  justifyContent: "space-between",
+  justifyContent: "flex-start",
 
   padding: mobile
     ? "20px 10px"
@@ -250,11 +250,13 @@ const sidebarBrand = {
 const navGroup = {
   display: "flex",
   flexDirection: "column",
-  gap: "8px"
+  gap: "8px",
+  flex: 1
 };
-
 const logoutContainer = {
-  marginTop: "20px"
+  marginTop: "24px",
+  paddingTop: "20px",
+  borderTop: "1px solid #1e293b"
 };
 
 const linkStyle = {

@@ -192,7 +192,7 @@ function DashboardPage() {
           <p style={cardDesc}>
 
             Start or stop your
-            AI-powered MT5 trading engine.
+            AI-powered Deriv trading engine.
 
           </p>
 
