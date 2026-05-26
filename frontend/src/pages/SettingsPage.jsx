@@ -64,6 +64,10 @@ function SettingsPage() {
         );
       }
 
+      localStorage.setItem(
+  "deriv_api_token",
+  apiToken
+);
       setMessage(
         "Deriv account connected successfully"
       );

@@ -4,6 +4,10 @@ import React, {
 } from "react";
 
 import DashboardLayout from "../components/DashboardLayout";
+import {
+  connectDerivSocket,
+  disconnectDerivSocket
+} from "../services/derivSocket";
 
 import {
   Activity,
@@ -22,6 +26,15 @@ function DashboardPage() {
   const [message, setMessage] = useState("");
 
   const [error, setError] = useState("");
+  const [balance, setBalance] = useState(0);
+
+const [currency, setCurrency] = useState("USD");
+
+const [marketPrices, setMarketPrices] = useState({
+  R_100: "--",
+  R_75: "--",
+  R_50: "--"
+});
 
   const fetchBotStatus = async () => {
 
@@ -124,13 +137,52 @@ function DashboardPage() {
   useEffect(() => {
 
     fetchBotStatus();
+    const token = localStorage.getItem(
+  "deriv_api_token"
+);
+
+if (token) {
+
+  connectDerivSocket(
+    token,
+    (data) => {
+
+      // ACCOUNT BALANCE
+
+      if (data.msg_type === "balance") {
+
+        setBalance(data.balance.balance);
+
+        setCurrency(
+          data.balance.currency
+        );
+      }
+
+      // LIVE TICKS
+
+      if (data.msg_type === "tick") {
+
+        setMarketPrices((prev) => ({
+          ...prev,
+          [data.tick.symbol]:
+            data.tick.quote
+        }));
+      }
+    }
+  );
+}
 
     const interval = setInterval(
       fetchBotStatus,
       3000
     );
 
-    return () => clearInterval(interval);
+    return () => {
+
+  clearInterval(interval);
+
+  disconnectDerivSocket();
+};
 
   }, []);
 
@@ -189,6 +241,29 @@ function DashboardPage() {
         {/* STATS */}
 
         <div style={statsGrid}>
+          <StatCard
+  icon={<Activity size={24} />}
+  title="Account Balance"
+  value={`${currency} ${balance}`}
+/>
+
+<StatCard
+  icon={<LineChart size={24} />}
+  title="R_100"
+  value={marketPrices.R_100}
+/>
+
+<StatCard
+  icon={<LineChart size={24} />}
+  title="R_75"
+  value={marketPrices.R_75}
+/>
+
+<StatCard
+  icon={<LineChart size={24} />}
+  title="R_50"
+  value={marketPrices.R_50}
+/>
 
           <StatCard
             icon={<Bot size={24} />}
