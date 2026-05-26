@@ -1,14 +1,18 @@
 import pandas as pd
 import time
 import json
-import os
 import random
 
 from datetime import datetime, timezone
 
 from database import SessionLocal
 
-from models import TradeHistory
+from models import (
+    TradeHistory,
+    BrokerAccount
+)
+
+from deriv_engine import DerivEngine
 
 # =========================
 # TRADE TELEMETRY
@@ -69,51 +73,6 @@ def save_trade_signal(
         db.close()
 
 # =========================
-# MOCK BROKER ENGINE
-# =========================
-
-class BrokerAPI:
-
-    def get_candles(
-        self,
-        pair,
-        timeframe="15m",
-        count=50
-    ):
-
-        return []
-
-    def get_price(self, pair):
-
-        return {
-            "bid": 0,
-            "ask": 0
-        }
-
-    def place_limit_order(
-        self,
-        pair,
-        side,
-        volume,
-        entry,
-        sl,
-        tp
-    ):
-
-        print(
-            f"📤 MOCK ORDER: {pair} {side}"
-        )
-
-        return {
-            "success": True,
-            "comment": "Mock Order Executed"
-        }
-
-    def get_balance(self):
-
-        return 10000
-
-# =========================
 # HARD PRODUCTION ENGINE
 # =========================
 
@@ -121,6 +80,7 @@ class HardProductionEngine:
 
     def __init__(
         self,
+        broker_account,
         risk_per_trade=0.01
     ):
 
@@ -134,30 +94,41 @@ class HardProductionEngine:
 
         self.is_active = True
 
-        self.broker = BrokerAPI()
+        self.broker = DerivEngine(
+
+            api_token=
+                broker_account.api_token,
+
+            app_id=
+                broker_account.app_id
+        )
+
+        connected = self.broker.connect()
+
+        if not connected:
+
+            print(
+                "❌ Failed to connect to Deriv"
+            )
 
     # =========================
-    # PERSISTENT STATE
+    # STATE
     # =========================
 
     def _load_state(self):
 
-        if os.path.exists(self.state_file):
+        try:
 
-            try:
+            with open(
+                self.state_file,
+                "r"
+            ) as f:
 
-                with open(
-                    self.state_file,
-                    "r"
-                ) as f:
+                return json.load(f)
 
-                    return json.load(f)
+        except:
 
-            except:
-
-                return {}
-
-        return {}
+            return {}
 
     def _save_state(self):
 
@@ -172,7 +143,7 @@ class HardProductionEngine:
             )
 
     # =========================
-    # MARKET SAFETY
+    # MARKET HOURS
     # =========================
 
     def is_market_safe(self, pair):
@@ -181,14 +152,10 @@ class HardProductionEngine:
             timezone.utc
         ).hour
 
-        if not (7 <= now_utc < 20):
-
-            return False
-
-        return True
+        return 0 <= now_utc <= 23
 
     # =========================
-    # FVG STRATEGY
+    # SIGNAL ENGINE
     # =========================
 
     def get_institutional_signal(
@@ -197,8 +164,11 @@ class HardProductionEngine:
     ):
 
         candles = self.broker.get_candles(
-            pair,
-            timeframe="15m",
+
+            symbol=pair,
+
+            granularity=900,
+
             count=50
         )
 
@@ -208,12 +178,28 @@ class HardProductionEngine:
 
         df = pd.DataFrame(candles)
 
+        df["open"] = pd.to_numeric(
+            df["open"]
+        )
+
+        df["high"] = pd.to_numeric(
+            df["high"]
+        )
+
+        df["low"] = pd.to_numeric(
+            df["low"]
+        )
+
+        df["close"] = pd.to_numeric(
+            df["close"]
+        )
+
         if len(df) < 10:
 
             return None
 
         body_size = (
-            df['close'] - df['open']
+            df["close"] - df["open"]
         ).abs()
 
         avg_body = (
@@ -222,268 +208,104 @@ class HardProductionEngine:
             .mean()
         )
 
-        # =========================
-        # BULLISH FVG
-        # =========================
+        # BUY
 
         if (
 
             body_size.iloc[-2] >
 
-            (
-                avg_body.iloc[-2] * 2
-            )
+            avg_body.iloc[-2] * 2
 
             and
 
-            df['close'].iloc[-2] >
+            df["close"].iloc[-2] >
 
-            df['open'].iloc[-2]
+            df["open"].iloc[-2]
         ):
 
             if (
 
-                df['low'].iloc[-1] >
+                df["low"].iloc[-1] >
 
-                df['high'].iloc[-3]
+                df["high"].iloc[-3]
             ):
-
-                fvg_top = (
-                    df['high'].iloc[-3]
-                )
-
-                fvg_bottom = (
-                    df['low'].iloc[-1]
-                )
-
-                entry_price = (
-                    fvg_top + fvg_bottom
-                ) / 2
-
-                sl = (
-                    df['low']
-                    .iloc[-5:]
-                    .min()
-                )
-
-                tp = (
-                    entry_price +
-                    (
-                        abs(
-                            entry_price - sl
-                        ) * 3
-                    )
-                )
 
                 return {
 
                     "side": "BUY",
 
-                    "entry": entry_price,
+                    "entry":
+                        df["close"].iloc[-1],
 
-                    "sl": sl,
+                    "sl":
+                        df["low"].iloc[-5:].min(),
 
-                    "tp": tp
+                    "tp":
+                        df["close"].iloc[-1] + 30
                 }
 
-        # =========================
-        # BEARISH FVG
-        # =========================
+        # SELL
 
         if (
 
             body_size.iloc[-2] >
 
-            (
-                avg_body.iloc[-2] * 2
-            )
+            avg_body.iloc[-2] * 2
 
             and
 
-            df['close'].iloc[-2] <
+            df["close"].iloc[-2] <
 
-            df['open'].iloc[-2]
+            df["open"].iloc[-2]
         ):
 
             if (
 
-                df['high'].iloc[-1] <
+                df["high"].iloc[-1] <
 
-                df['low'].iloc[-3]
+                df["low"].iloc[-3]
             ):
-
-                fvg_bottom = (
-                    df['low'].iloc[-3]
-                )
-
-                fvg_top = (
-                    df['high'].iloc[-1]
-                )
-
-                entry_price = (
-                    fvg_top + fvg_bottom
-                ) / 2
-
-                sl = (
-                    df['high']
-                    .iloc[-5:]
-                    .max()
-                )
-
-                tp = (
-                    entry_price -
-                    (
-                        abs(
-                            entry_price - sl
-                        ) * 3
-                    )
-                )
 
                 return {
 
                     "side": "SELL",
 
-                    "entry": entry_price,
+                    "entry":
+                        df["close"].iloc[-1],
 
-                    "sl": sl,
+                    "sl":
+                        df["high"].iloc[-5:].max(),
 
-                    "tp": tp
+                    "tp":
+                        df["close"].iloc[-1] - 30
                 }
 
         return None
 
     # =========================
-    # DYNAMIC LOTS
-    # =========================
-
-    def calculate_dynamic_lots(
-        self,
-        entry,
-        sl
-    ):
-
-        balance = (
-            self.broker.get_balance()
-        )
-
-        risk_amount = (
-            balance *
-            self.risk_per_trade
-        )
-
-        stop_distance = abs(
-            entry - sl
-        )
-
-        if stop_distance == 0:
-
-            return 0.01
-
-        lots = (
-            risk_amount /
-            stop_distance
-        )
-
-        return round(
-            max(0.01, lots),
-            2
-        )
-
-    # =========================
     # EXECUTION
     # =========================
 
-    def execute_limit_order(
+    def execute_trade(
         self,
         pair,
         signal
     ):
 
-        lots = (
-            self.calculate_dynamic_lots(
-                signal['entry'],
-                signal['sl']
-            )
-        )
-
-        result = (
-            self.broker.place_limit_order(
-                pair=pair,
-                side=signal['side'],
-                volume=lots,
-                entry=signal['entry'],
-                sl=signal['sl'],
-                tp=signal['tp']
-            )
-        )
-
         print(
-            f"📤 ORDER RESULT: {result}"
+            f"🚀 EXECUTING {signal['side']} {pair}"
         )
-
-        self._log_trade(
-            pair,
-            signal,
-            result
-        )
-
-        # =========================
-        # SAVE TELEMETRY
-        # =========================
 
         save_trade_signal(
+
             pair,
-            signal['side'],
+
+            signal["side"],
+
             92
         )
 
-        return result["success"]
-
-    # =========================
-    # TRADE LOGGING
-    # =========================
-
-    def _log_trade(
-        self,
-        pair,
-        signal,
-        result
-    ):
-
-        log = {
-
-            "time":
-                str(datetime.now()),
-
-            "pair":
-                pair,
-
-            "side":
-                signal['side'],
-
-            "entry":
-                signal['entry'],
-
-            "status":
-                result["comment"]
-        }
-
-        with open(
-            "trade_history.json",
-            "a"
-        ) as f:
-
-            f.write(
-                json.dumps(log) + "\n"
-            )
-
-    # =========================
-    # EXPOSURE MANAGEMENT
-    # =========================
-
-    def manage_active_exposure(self):
-
-        return 0
+        return True
 
 # =========================
 # DRIVER LOOP
@@ -491,74 +313,82 @@ class HardProductionEngine:
 
 def start_strategy():
 
+    db = SessionLocal()
+
+    broker_accounts = db.query(
+        BrokerAccount
+    ).all()
+
+    if not broker_accounts:
+
+        print(
+            "❌ No broker accounts connected"
+        )
+
+        return
+
+    bots = []
+
+    for account in broker_accounts:
+
+        try:
+
+            bot = HardProductionEngine(
+                broker_account=account
+            )
+
+            bots.append(bot)
+
+            print(
+                f"✅ Bot initialized for account {account.id}"
+            )
+
+        except Exception as e:
+
+            print(
+                f"❌ Bot init failed: {e}"
+            )
+
     SYMBOLS = [
 
-        "frxXAUUSD",
+        "R_100",
 
-        "frxEURUSD",
+        "R_75",
 
-        "frxGBPUSD"
+        "R_50"
     ]
 
-    bot = HardProductionEngine()
+    while True:
 
-    print(
-        "🚀 Cloud Strategy Engine Active"
-    )
+        try:
 
-    try:
+            for bot in bots:
 
-        while bot.is_active:
+                for pair in SYMBOLS:
 
-            for pair in SYMBOLS:
+                    signal = (
 
-                current_time = int(
-                    time.time()
-                )
+                        bot.get_institutional_signal(
+                            pair
+                        )
+                    )
 
-                if (
+                    if signal:
 
-                    bot.last_candle_time.get(pair)
+                        print(
 
-                    != current_time
-                ):
+                            f"💎 SIGNAL FOUND: {pair} {signal}"
+                        )
 
-                    bot.last_candle_time[
-                        pair
-                    ] = current_time
-
-                    bot._save_state()
-
-                    if bot.is_market_safe(pair):
-
-                        if (
-
-                            bot.manage_active_exposure()
-
-                            < 3
-                        ):
-
-                            signal = (
-
-                                bot.get_institutional_signal(pair)
-                            )
-
-                            if signal:
-
-                                print(
-
-                                    f"💎 SIGNAL FOUND: {pair} {signal}"
-                                )
-
-                                bot.execute_limit_order(
-                                    pair,
-                                    signal
-                                )
+                        bot.execute_trade(
+                            pair,
+                            signal
+                        )
 
             time.sleep(15)
 
-    except Exception as e:
+        except Exception as e:
 
-        print(
-            f"❌ Strategy Error: {e}"
-        )
+            print(
+                f"❌ Strategy Loop Error: {e}"
+            )

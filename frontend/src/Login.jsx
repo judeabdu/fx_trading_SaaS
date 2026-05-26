@@ -62,8 +62,8 @@ function Login() {
           );
 
           localStorage.setItem(
-            "goldbot_user",
-            formData.email
+            "user_email",
+            data.email
           );
 
           window.location.href = "/";
@@ -71,12 +71,17 @@ function Login() {
 
       } else {
 
-        alert(data.detail || "Authentication failed");
+        alert(
+          data.detail ||
+          "Authentication failed"
+        );
       }
 
     } catch (error) {
 
-      alert("Server connection failed");
+      alert(
+        "Server connection failed"
+      );
 
       console.error(error);
 

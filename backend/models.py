@@ -3,13 +3,15 @@ from sqlalchemy import (
     Integer,
     String,
     Float,
-    ForeignKey
+    ForeignKey,
+    DateTime
 )
 
 from sqlalchemy.orm import relationship
 
-from database import Base
+from datetime import datetime
 
+from database import Base
 
 # =========================
 # USERS
@@ -41,7 +43,6 @@ class User(Base):
         back_populates="user"
     )
 
-
 # =========================
 # BROKER ACCOUNTS
 # =========================
@@ -58,12 +59,9 @@ class BrokerAccount(Base):
 
     user_id = Column(
         Integer,
-        ForeignKey("users.id")
+        ForeignKey("users.id"),
+        nullable=False
     )
-
-    # =========================
-    # BROKER INFO
-    # =========================
 
     broker_name = Column(
         String(100),
@@ -80,13 +78,9 @@ class BrokerAccount(Base):
         nullable=False
     )
 
-    # =========================
-    # TRADING SETTINGS
-    # =========================
-
     symbols = Column(
         String(500),
-        default="frxXAUUSD,frxEURUSD"
+        default="frxXAUUSD,frxEURUSD,frxGBPUSD"
     )
 
     risk_per_trade = Column(
@@ -99,36 +93,52 @@ class BrokerAccount(Base):
         default="Institutional FVG"
     )
 
-    # =========================
-    # RELATIONSHIP
-    # =========================
-
     user = relationship(
         "User",
         back_populates="broker_accounts"
     )
-from sqlalchemy import Float, DateTime
-from datetime import datetime
+
+# =========================
+# TRADE HISTORY
+# =========================
 
 class TradeHistory(Base):
 
     __tablename__ = "trade_history"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
-    symbol = Column(String(50))
+    symbol = Column(
+        String(50)
+    )
 
-    signal = Column(String(20))
+    signal = Column(
+        String(20)
+    )
 
-    entry_price = Column(Float)
+    entry_price = Column(
+        Float
+    )
 
-    exit_price = Column(Float)
+    exit_price = Column(
+        Float
+    )
 
-    profit_loss = Column(Float)
+    profit_loss = Column(
+        Float
+    )
 
-    confidence = Column(Float)
+    confidence = Column(
+        Float
+    )
 
-    status = Column(String(20))
+    status = Column(
+        String(20)
+    )
 
     created_at = Column(
         DateTime,

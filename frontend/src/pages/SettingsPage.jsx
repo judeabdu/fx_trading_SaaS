@@ -38,19 +38,22 @@ function SettingsPage() {
 
           body: JSON.stringify({
 
-            broker_name: "Deriv",
+            email:
+              localStorage.getItem(
+                "user_email"
+              ),
 
-            api_token: apiToken,
+            api_token:
+              apiToken,
 
-            app_id: "1089",
+            app_id:
+              "1089",
 
-            symbols: [
-              "R_100",
-              "R_75",
-              "R_50"
-            ],
+            symbols:
+              "R_100,R_75,R_50",
 
-            risk_per_trade: 1
+            risk_per_trade:
+              0.01
           })
         }
       );
@@ -60,14 +63,16 @@ function SettingsPage() {
       if (!response.ok) {
 
         throw new Error(
-          data.detail || "Connection failed"
+          data.detail ||
+          "Connection failed"
         );
       }
 
       localStorage.setItem(
-  "deriv_api_token",
-  apiToken
-);
+        "deriv_api_token",
+        apiToken
+      );
+
       setMessage(
         "Deriv account connected successfully"
       );
@@ -129,7 +134,7 @@ function SettingsPage() {
 
             <div style={pairHeader}>
               <ShieldCheck size={18} />
-              Default Trading Pairs
+              Active Trading Pairs
             </div>
 
             <div style={pairList}>

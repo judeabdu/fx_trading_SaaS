@@ -1,7 +1,4 @@
 import threading
-import time
-
-from datetime import datetime
 
 from database import (
     engine,
@@ -29,8 +26,7 @@ from sqlalchemy.orm import Session
 
 from schemas import (
     UserCreate,
-    UserLogin,
-    BrokerAccountCreate
+    UserLogin
 )
 
 from auth import (
@@ -54,14 +50,23 @@ Base.metadata.create_all(bind=engine)
 # =========================
 
 app.add_middleware(
+
     CORSMiddleware,
+
     allow_origins=[
+
         "http://localhost:5173",
+
         "https://fx-trading-saa-s.vercel.app"
+
     ],
+
     allow_credentials=True,
+
     allow_methods=["*"],
-    allow_headers=["*"],
+
+    allow_headers=["*"]
+
 )
 
 # =========================
@@ -96,7 +101,9 @@ def strategy_loop():
 
     global bot_running
 
-    print("🚀 Strategy Engine Started")
+    print(
+        "🚀 Strategy Engine Started"
+    )
 
     try:
 
@@ -112,7 +119,9 @@ def strategy_loop():
 
         bot_running = False
 
-        print("🛑 Strategy Stopped")
+        print(
+            "🛑 Strategy Stopped"
+        )
 
 # =========================
 # HOME
@@ -122,7 +131,10 @@ def strategy_loop():
 def home():
 
     return {
-        "message": "Onyx Cloud Trading API Running"
+
+        "message":
+            "Onyx Cloud Trading API Running"
+
     }
 
 # =========================
@@ -131,23 +143,37 @@ def home():
 
 @app.post("/register")
 def register(
+
     user: UserCreate,
+
     db: Session = Depends(get_db)
+
 ):
 
-    existing_user = db.query(User).filter(
-        User.email == user.email
-    ).first()
+    existing_user = (
+
+        db.query(User)
+
+        .filter(User.email == user.email)
+
+        .first()
+
+    )
 
     if existing_user:
 
         raise HTTPException(
+
             status_code=400,
+
             detail="Email already exists"
+
         )
 
     new_user = User(
+
         email=user.email,
+
         password=hash_password(
             user.password
         )
@@ -158,7 +184,10 @@ def register(
     db.commit()
 
     return {
-        "message": "User registered successfully"
+
+        "message":
+            "User registered successfully"
+
     }
 
 # =========================
@@ -167,72 +196,176 @@ def register(
 
 @app.post("/login")
 def login(
+
     user: UserLogin,
+
     db: Session = Depends(get_db)
+
 ):
 
-    existing_user = db.query(User).filter(
-        User.email == user.email
-    ).first()
+    existing_user = (
+
+        db.query(User)
+
+        .filter(User.email == user.email)
+
+        .first()
+
+    )
 
     if not existing_user:
 
         raise HTTPException(
+
             status_code=400,
+
             detail="Invalid credentials"
+
         )
 
     valid_password = verify_password(
+
         user.password,
+
         existing_user.password
+
     )
 
     if not valid_password:
 
         raise HTTPException(
+
             status_code=400,
+
             detail="Invalid credentials"
+
         )
 
     access_token = create_access_token({
-        "sub": existing_user.email
+
+        "sub":
+            existing_user.email
+
     })
 
     return {
-        "message": "Login successful",
-        "access_token": access_token,
-        "token_type": "bearer"
+
+        "message":
+            "Login successful",
+
+        "access_token":
+            access_token,
+
+        "token_type":
+            "bearer",
+
+        "email":
+            existing_user.email
     }
 
 # =========================
-# SAVE BROKER
+# SAVE BROKER ACCOUNT
 # =========================
 
 @app.post("/save-broker")
 def save_broker(
-    broker: BrokerAccountCreate,
+
+    payload: dict,
+
     db: Session = Depends(get_db)
+
 ):
 
-    account = BrokerAccount(
+    email = payload.get("email")
 
-        broker_name=broker.broker_name,
+    user = (
 
-        api_token=broker.api_token,
+        db.query(User)
 
-        app_id=broker.app_id,
+        .filter(User.email == email)
 
-        symbols=broker.symbols,
+        .first()
 
-        risk_per_trade=broker.risk_per_trade
     )
 
-    db.add(account)
+    if not user:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="User not found"
+
+        )
+
+    existing_account = (
+
+        db.query(BrokerAccount)
+
+        .filter(
+            BrokerAccount.user_id == user.id
+        )
+
+        .first()
+
+    )
+
+    if existing_account:
+
+        existing_account.api_token = payload.get(
+            "api_token"
+        )
+
+        existing_account.app_id = payload.get(
+            "app_id"
+        )
+
+        existing_account.symbols = payload.get(
+            "symbols",
+            "frxXAUUSD,frxEURUSD,frxGBPUSD"
+        )
+
+        existing_account.risk_per_trade = payload.get(
+            "risk_per_trade",
+            0.01
+        )
+
+    else:
+
+        account = BrokerAccount(
+
+            user_id=user.id,
+
+            broker_name="Deriv",
+
+            api_token=payload.get(
+                "api_token"
+            ),
+
+            app_id=payload.get(
+                "app_id"
+            ),
+
+            symbols=payload.get(
+                "symbols",
+                "frxXAUUSD,frxEURUSD,frxGBPUSD"
+            ),
+
+            risk_per_trade=payload.get(
+                "risk_per_trade",
+                0.01
+            )
+        )
+
+        db.add(account)
 
     db.commit()
 
     return {
-        "message": "Broker saved successfully"
+
+        "message":
+            "Broker account saved successfully"
+
     }
 
 # =========================
@@ -249,19 +382,27 @@ def start_bot():
     if bot_running:
 
         return {
-            "message": "Bot already running"
+
+            "message":
+                "Bot already running"
+
         }
 
     bot_running = True
 
     bot_thread = threading.Thread(
+
         target=strategy_loop
+
     )
 
     bot_thread.start()
 
     return {
-        "message": "Bot started successfully"
+
+        "message":
+            "Bot started successfully"
+
     }
 
 # =========================
@@ -276,7 +417,10 @@ def stop_bot():
     bot_running = False
 
     return {
-        "message": "Bot stopped successfully"
+
+        "message":
+            "Bot stopped successfully"
+
     }
 
 # =========================
@@ -287,16 +431,21 @@ def stop_bot():
 def bot_status():
 
     return {
-        "running": bot_running
+
+        "running":
+            bot_running
+
     }
 
 # =========================
-# REAL ANALYTICS
+# ANALYTICS
 # =========================
 
 @app.get("/analytics")
 def analytics(
+
     db: Session = Depends(get_db)
+
 ):
 
     trades = db.query(
@@ -306,24 +455,37 @@ def analytics(
     total_trades = len(trades)
 
     wins = len([
+
         t for t in trades
+
         if t.profit_loss > 0
+
     ])
 
     losses = len([
+
         t for t in trades
+
         if t.profit_loss <= 0
+
     ])
 
     total_profit = sum([
+
         t.profit_loss
+
         for t in trades
+
     ])
 
     win_rate = (
+
         (wins / total_trades) * 100
+
         if total_trades > 0
+
         else 0
+
     )
 
     running_equity = 0
@@ -337,6 +499,7 @@ def analytics(
         chart_data.append({
 
             "time":
+
                 trade.created_at.strftime(
                     "%d %b"
                 ),
@@ -367,19 +530,36 @@ def analytics(
     }
 
 # =========================
-# ACCOUNT STATUS
+# STATUS
 # =========================
 
 @app.get("/status")
 def status():
 
     return {
-        "running": bot_running,
-        "broker": "Deriv",
-        "mode": "Cloud API",
-        "balance": 0,
-        "equity": 0,
-        "profit": 0,
-        "currency": "USD",
-        "active_trades": []
+
+        "running":
+            bot_running,
+
+        "broker":
+            "Deriv",
+
+        "mode":
+            "Cloud API",
+
+        "balance":
+            0,
+
+        "equity":
+            0,
+
+        "profit":
+            0,
+
+        "currency":
+            "USD",
+
+        "active_trades":
+            []
+
     }
