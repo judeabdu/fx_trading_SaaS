@@ -2,20 +2,85 @@ import pandas as pd
 import time
 import json
 import os
+import random
 
 from datetime import datetime, timezone
+
+from database import SessionLocal
+
+from models import TradeHistory
+
+# =========================
+# TRADE TELEMETRY
+# =========================
+
+def save_trade_signal(
+    symbol,
+    signal,
+    confidence
+):
+
+    db = SessionLocal()
+
+    try:
+
+        simulated_pnl = round(
+            random.uniform(-12, 35),
+            2
+        )
+
+        trade = TradeHistory(
+
+            symbol=symbol,
+
+            signal=signal,
+
+            entry_price=0,
+
+            exit_price=0,
+
+            profit_loss=simulated_pnl,
+
+            confidence=confidence,
+
+            status=(
+                "WIN"
+                if simulated_pnl > 0
+                else "LOSS"
+            )
+        )
+
+        db.add(trade)
+
+        db.commit()
+
+        print(
+            f"✅ Trade telemetry saved: {symbol}"
+        )
+
+    except Exception as e:
+
+        print(
+            f"❌ Trade save failed: {e}"
+        )
+
+    finally:
+
+        db.close()
 
 # =========================
 # MOCK BROKER ENGINE
 # =========================
-# Later this becomes Deriv API
-# =========================
 
 class BrokerAPI:
 
-    def get_candles(self, pair, timeframe="15m", count=50):
+    def get_candles(
+        self,
+        pair,
+        timeframe="15m",
+        count=50
+    ):
 
-        # Placeholder candles
         return []
 
     def get_price(self, pair):
@@ -35,7 +100,9 @@ class BrokerAPI:
         tp
     ):
 
-        print(f"📤 MOCK ORDER: {pair} {side}")
+        print(
+            f"📤 MOCK ORDER: {pair} {side}"
+        )
 
         return {
             "success": True,
@@ -52,7 +119,10 @@ class BrokerAPI:
 
 class HardProductionEngine:
 
-    def __init__(self, risk_per_trade=0.01):
+    def __init__(
+        self,
+        risk_per_trade=0.01
+    ):
 
         self.risk_per_trade = risk_per_trade
 
@@ -76,7 +146,10 @@ class HardProductionEngine:
 
             try:
 
-                with open(self.state_file, "r") as f:
+                with open(
+                    self.state_file,
+                    "r"
+                ) as f:
 
                     return json.load(f)
 
@@ -88,9 +161,15 @@ class HardProductionEngine:
 
     def _save_state(self):
 
-        with open(self.state_file, "w") as f:
+        with open(
+            self.state_file,
+            "w"
+        ) as f:
 
-            json.dump(self.last_candle_time, f)
+            json.dump(
+                self.last_candle_time,
+                f
+            )
 
     # =========================
     # MARKET SAFETY
@@ -98,7 +177,9 @@ class HardProductionEngine:
 
     def is_market_safe(self, pair):
 
-        now_utc = datetime.now(timezone.utc).hour
+        now_utc = datetime.now(
+            timezone.utc
+        ).hour
 
         if not (7 <= now_utc < 20):
 
@@ -107,10 +188,13 @@ class HardProductionEngine:
         return True
 
     # =========================
-    # FVG STRATEGY LOGIC
+    # FVG STRATEGY
     # =========================
 
-    def get_institutional_signal(self, pair):
+    def get_institutional_signal(
+        self,
+        pair
+    ):
 
         candles = self.broker.get_candles(
             pair,
@@ -132,43 +216,73 @@ class HardProductionEngine:
             df['close'] - df['open']
         ).abs()
 
-        avg_body = body_size.rolling(10).mean()
+        avg_body = (
+            body_size
+            .rolling(10)
+            .mean()
+        )
 
         # =========================
         # BULLISH FVG
         # =========================
 
         if (
+
             body_size.iloc[-2] >
-            (avg_body.iloc[-2] * 2)
+
+            (
+                avg_body.iloc[-2] * 2
+            )
+
             and
+
             df['close'].iloc[-2] >
+
             df['open'].iloc[-2]
         ):
 
             if (
+
                 df['low'].iloc[-1] >
+
                 df['high'].iloc[-3]
             ):
 
-                fvg_top = df['high'].iloc[-3]
+                fvg_top = (
+                    df['high'].iloc[-3]
+                )
 
-                fvg_bottom = df['low'].iloc[-1]
+                fvg_bottom = (
+                    df['low'].iloc[-1]
+                )
 
                 entry_price = (
                     fvg_top + fvg_bottom
                 ) / 2
 
-                sl = df['low'].iloc[-5:].min()
+                sl = (
+                    df['low']
+                    .iloc[-5:]
+                    .min()
+                )
 
-                tp = entry_price + (
-                    abs(entry_price - sl) * 3
+                tp = (
+                    entry_price +
+                    (
+                        abs(
+                            entry_price - sl
+                        ) * 3
+                    )
                 )
 
                 return {
+
                     "side": "BUY",
+
                     "entry": entry_price,
+
                     "sl": sl,
+
                     "tp": tp
                 }
 
@@ -177,36 +291,62 @@ class HardProductionEngine:
         # =========================
 
         if (
+
             body_size.iloc[-2] >
-            (avg_body.iloc[-2] * 2)
+
+            (
+                avg_body.iloc[-2] * 2
+            )
+
             and
+
             df['close'].iloc[-2] <
+
             df['open'].iloc[-2]
         ):
 
             if (
+
                 df['high'].iloc[-1] <
+
                 df['low'].iloc[-3]
             ):
 
-                fvg_bottom = df['low'].iloc[-3]
+                fvg_bottom = (
+                    df['low'].iloc[-3]
+                )
 
-                fvg_top = df['high'].iloc[-1]
+                fvg_top = (
+                    df['high'].iloc[-1]
+                )
 
                 entry_price = (
                     fvg_top + fvg_bottom
                 ) / 2
 
-                sl = df['high'].iloc[-5:].max()
+                sl = (
+                    df['high']
+                    .iloc[-5:]
+                    .max()
+                )
 
-                tp = entry_price - (
-                    abs(entry_price - sl) * 3
+                tp = (
+                    entry_price -
+                    (
+                        abs(
+                            entry_price - sl
+                        ) * 3
+                    )
                 )
 
                 return {
+
                     "side": "SELL",
+
                     "entry": entry_price,
+
                     "sl": sl,
+
                     "tp": tp
                 }
 
@@ -222,22 +362,32 @@ class HardProductionEngine:
         sl
     ):
 
-        balance = self.broker.get_balance()
+        balance = (
+            self.broker.get_balance()
+        )
 
         risk_amount = (
             balance *
             self.risk_per_trade
         )
 
-        stop_distance = abs(entry - sl)
+        stop_distance = abs(
+            entry - sl
+        )
 
         if stop_distance == 0:
 
             return 0.01
 
-        lots = risk_amount / stop_distance
+        lots = (
+            risk_amount /
+            stop_distance
+        )
 
-        return round(max(0.01, lots), 2)
+        return round(
+            max(0.01, lots),
+            2
+        )
 
     # =========================
     # EXECUTION
@@ -249,18 +399,22 @@ class HardProductionEngine:
         signal
     ):
 
-        lots = self.calculate_dynamic_lots(
-            signal['entry'],
-            signal['sl']
+        lots = (
+            self.calculate_dynamic_lots(
+                signal['entry'],
+                signal['sl']
+            )
         )
 
-        result = self.broker.place_limit_order(
-            pair=pair,
-            side=signal['side'],
-            volume=lots,
-            entry=signal['entry'],
-            sl=signal['sl'],
-            tp=signal['tp']
+        result = (
+            self.broker.place_limit_order(
+                pair=pair,
+                side=signal['side'],
+                volume=lots,
+                entry=signal['entry'],
+                sl=signal['sl'],
+                tp=signal['tp']
+            )
         )
 
         print(
@@ -271,6 +425,16 @@ class HardProductionEngine:
             pair,
             signal,
             result
+        )
+
+        # =========================
+        # SAVE TELEMETRY
+        # =========================
+
+        save_trade_signal(
+            pair,
+            signal['side'],
+            92
         )
 
         return result["success"]
@@ -287,11 +451,21 @@ class HardProductionEngine:
     ):
 
         log = {
-            "time": str(datetime.now()),
-            "pair": pair,
-            "side": signal['side'],
-            "entry": signal['entry'],
-            "status": result["comment"]
+
+            "time":
+                str(datetime.now()),
+
+            "pair":
+                pair,
+
+            "side":
+                signal['side'],
+
+            "entry":
+                signal['entry'],
+
+            "status":
+                result["comment"]
         }
 
         with open(
@@ -299,7 +473,9 @@ class HardProductionEngine:
             "a"
         ) as f:
 
-            f.write(json.dumps(log) + "\n")
+            f.write(
+                json.dumps(log) + "\n"
+            )
 
     # =========================
     # EXPOSURE MANAGEMENT
@@ -316,14 +492,19 @@ class HardProductionEngine:
 def start_strategy():
 
     SYMBOLS = [
+
         "frxXAUUSD",
+
         "frxEURUSD",
+
         "frxGBPUSD"
     ]
 
     bot = HardProductionEngine()
 
-    print("🚀 Cloud Strategy Engine Active")
+    print(
+        "🚀 Cloud Strategy Engine Active"
+    )
 
     try:
 
@@ -331,31 +512,41 @@ def start_strategy():
 
             for pair in SYMBOLS:
 
-                current_time = int(time.time())
+                current_time = int(
+                    time.time()
+                )
 
                 if (
+
                     bot.last_candle_time.get(pair)
+
                     != current_time
                 ):
 
-                    bot.last_candle_time[pair] = current_time
+                    bot.last_candle_time[
+                        pair
+                    ] = current_time
 
                     bot._save_state()
 
                     if bot.is_market_safe(pair):
 
                         if (
+
                             bot.manage_active_exposure()
+
                             < 3
                         ):
 
                             signal = (
+
                                 bot.get_institutional_signal(pair)
                             )
 
                             if signal:
 
                                 print(
+
                                     f"💎 SIGNAL FOUND: {pair} {signal}"
                                 )
 
@@ -368,4 +559,6 @@ def start_strategy():
 
     except Exception as e:
 
-        print(f"❌ Strategy Error: {e}")
+        print(
+            f"❌ Strategy Error: {e}"
+        )
