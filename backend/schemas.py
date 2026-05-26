@@ -1,10 +1,16 @@
 from pydantic import BaseModel
 
+
+# =========================
+# USER SCHEMAS
+# =========================
+
 class UserCreate(BaseModel):
 
     email: str
 
     password: str
+
 
 class UserLogin(BaseModel):
 
@@ -12,10 +18,28 @@ class UserLogin(BaseModel):
 
     password: str
 
-class MT5AccountCreate(BaseModel):
 
-    login: str
+# =========================
+# BROKER ACCOUNT SCHEMAS
+# =========================
 
-    password: str
+class BrokerAccountCreate(BaseModel):
 
-    server: str
+    broker_name: str
+
+    api_token: str
+
+    app_id: str
+
+    symbols: str
+
+    risk_per_trade: float
+
+
+# =========================
+# OPTIONAL RESPONSE SCHEMA
+# =========================
+
+class BrokerResponse(BaseModel):
+
+    message: str

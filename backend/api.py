@@ -1,15 +1,30 @@
 import threading
 import time
 
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException
+)
+
+from fastapi.middleware.cors import (
+    CORSMiddleware
+)
+
 from sqlalchemy.orm import Session
 
-import MetaTrader5 as mt5
-
 from database import SessionLocal
-from models import User, MT5Account
-from schemas import UserCreate, UserLogin, MT5AccountCreate
+
+from models import (
+    User,
+    BrokerAccount
+)
+
+from schemas import (
+    UserCreate,
+    UserLogin,
+    BrokerAccountCreate
+)
 
 from auth import (
     hash_password,
@@ -17,13 +32,15 @@ from auth import (
     create_access_token
 )
 
-from mt5_connector import connect_mt5
+from strategy import start_strategy
+
 
 app = FastAPI()
 
 # =========================
 # CORS
 # =========================
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -38,78 +55,68 @@ app.add_middleware(
 # =========================
 # GLOBAL BOT STATE
 # =========================
+
 bot_running = False
+
 bot_thread = None
 
 # =========================
 # DATABASE SESSION
 # =========================
+
 def get_db():
 
     db = SessionLocal()
 
     try:
+
         yield db
 
     finally:
+
         db.close()
 
 # =========================
 # STRATEGY LOOP
 # =========================
+
 def strategy_loop():
 
     global bot_running
 
-    print("🚀 Strategy started")
+    print("🚀 Strategy Engine Started")
 
-    while bot_running:
+    try:
 
-        try:
+        start_strategy()
 
-            account = mt5.account_info()
+    except Exception as e:
 
-            if account:
+        print(
+            f"❌ Strategy Error: {e}"
+        )
 
-                print(
-                    f"✅ Running on account {account.login} | Balance: {account.balance}"
-                )
+    finally:
 
-                # ==================================
-                # YOUR STRATEGY LOGIC GOES HERE
-                # ==================================
+        bot_running = False
 
-                positions = mt5.positions_get()
-
-                if positions:
-
-                    print(f"📈 Active trades: {len(positions)}")
-
-            else:
-
-                print("❌ MT5 disconnected")
-
-        except Exception as e:
-
-            print(f"❌ Strategy Error: {e}")
-
-        time.sleep(5)
-
-    print("🛑 Strategy stopped")
+        print("🛑 Strategy Stopped")
 
 # =========================
 # HOME
 # =========================
+
 @app.get("/")
 def home():
 
     return {
-        "message": "Gold Bot API Running"
+        "message": "Onyx Cloud Trading API Running"
     }
 
 # =========================
 # REGISTER
 # =========================
+
 @app.post("/register")
 def register(
     user: UserCreate,
@@ -129,7 +136,9 @@ def register(
 
     new_user = User(
         email=user.email,
-        password=hash_password(user.password)
+        password=hash_password(
+            user.password
+        )
     )
 
     db.add(new_user)
@@ -143,6 +152,7 @@ def register(
 # =========================
 # LOGIN
 # =========================
+
 @app.post("/login")
 def login(
     user: UserLogin,
@@ -183,61 +193,45 @@ def login(
     }
 
 # =========================
-# CONNECT MT5
+# SAVE BROKER
 # =========================
-@app.post("/connect-mt5")
-def connect_account(
-    account: MT5AccountCreate,
+
+@app.post("/save-broker")
+def save_broker(
+    broker: BrokerAccountCreate,
     db: Session = Depends(get_db)
 ):
 
-    connected = connect_mt5(
-        account.login,
-        account.password,
-        account.server
+    account = BrokerAccount(
+
+        broker_name=broker.broker_name,
+
+        api_token=broker.api_token,
+
+        app_id=broker.app_id,
+
+        symbols=broker.symbols,
+
+        risk_per_trade=broker.risk_per_trade
     )
 
-    if not connected:
-
-        raise HTTPException(
-            status_code=400,
-            detail="MT5 connection failed"
-        )
-
-    existing = db.query(MT5Account).filter(
-        MT5Account.user_id == 1
-    ).first()
-
-    if existing:
-
-        existing.login = account.login
-        existing.password = account.password
-        existing.server = account.server
-
-    else:
-
-        mt5_account = MT5Account(
-            user_id=1,
-            login=account.login,
-            password=account.password,
-            server=account.server
-        )
-
-        db.add(mt5_account)
+    db.add(account)
 
     db.commit()
 
     return {
-        "message": "MT5 account connected successfully"
+        "message": "Broker saved successfully"
     }
 
 # =========================
 # START BOT
 # =========================
+
 @app.post("/start-bot")
 def start_bot():
 
     global bot_running
+
     global bot_thread
 
     if bot_running:
@@ -261,6 +255,7 @@ def start_bot():
 # =========================
 # STOP BOT
 # =========================
+
 @app.post("/stop-bot")
 def stop_bot():
 
@@ -275,6 +270,7 @@ def stop_bot():
 # =========================
 # BOT STATUS
 # =========================
+
 @app.get("/bot-status")
 def bot_status():
 
@@ -285,41 +281,17 @@ def bot_status():
 # =========================
 # ACCOUNT STATUS
 # =========================
+
 @app.get("/status")
 def status():
 
-    account = mt5.account_info()
-
-    positions = mt5.positions_get()
-
-    trades = []
-
-    if positions:
-
-        for pos in positions:
-
-            trades.append({
-                "symbol": pos.symbol,
-                "type": "BUY" if pos.type == 0 else "SELL",
-                "lots": pos.volume,
-                "openPrice": pos.price_open,
-                "profit": round(pos.profit, 2)
-            })
-
-    if account is None:
-
-        return {
-            "running": False,
-            "error": "MT5 not connected"
-        }
-
     return {
-        "running": True,
-        "balance": round(account.balance, 2),
-        "equity": round(account.equity, 2),
-        "profit": round(account.profit, 2),
-        "currency": account.currency,
-        "server": account.server,
-        "name": account.name,
-        "active_trades": trades
+        "running": bot_running,
+        "broker": "Deriv",
+        "mode": "Cloud API",
+        "balance": 0,
+        "equity": 0,
+        "profit": 0,
+        "currency": "USD",
+        "active_trades": []
     }
