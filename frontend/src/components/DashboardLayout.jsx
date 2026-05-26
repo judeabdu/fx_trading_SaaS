@@ -5,7 +5,15 @@ function DashboardLayout({ children }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const handleLogout = () => {
+
   localStorage.removeItem("goldbot_token");
+
+  localStorage.removeItem("token");
+
+  localStorage.removeItem("access_token");
+
+  sessionStorage.clear();
+
   window.location.href = "/login";
 };
 
