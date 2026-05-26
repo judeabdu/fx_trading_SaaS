@@ -1,5 +1,7 @@
 import threading
 import time
+from database import engine
+from models import Base
 
 from fastapi import (
     FastAPI,
@@ -36,6 +38,12 @@ from strategy import start_strategy
 
 
 app = FastAPI()
+
+# =========================
+# CREATE DATABASE TABLES
+# =========================
+
+Base.metadata.create_all(bind=engine)
 
 # =========================
 # CORS
