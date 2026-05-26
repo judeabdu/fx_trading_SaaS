@@ -2,15 +2,14 @@ import React, { useState } from "react";
 
 import DashboardLayout from "../components/DashboardLayout";
 
+import {
+  ShieldCheck,
+  PlugZap
+} from "lucide-react";
+
 function SettingsPage() {
 
-  const [form, setForm] = useState({
-    broker_name: "Deriv",
-    api_token: "",
-    app_id: "",
-    symbols: "R_100",
-    risk_per_trade: 1
-  });
+  const [apiToken, setApiToken] = useState("");
 
   const [loading, setLoading] = useState(false);
 
@@ -18,15 +17,7 @@ function SettingsPage() {
 
   const [error, setError] = useState("");
 
-  const handleChange = (e) => {
-
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const saveBroker = async () => {
+  const connectBroker = async () => {
 
     setLoading(true);
 
@@ -46,11 +37,20 @@ function SettingsPage() {
           },
 
           body: JSON.stringify({
-            broker_name: form.broker_name,
-            api_token: form.api_token,
-            app_id: form.app_id,
-            symbols: form.symbols,
-            risk_per_trade: Number(form.risk_per_trade)
+
+            broker_name: "Deriv",
+
+            api_token: apiToken,
+
+            app_id: "1089",
+
+            symbols: [
+              "R_100",
+              "R_75",
+              "R_50"
+            ],
+
+            risk_per_trade: 1
           })
         }
       );
@@ -60,12 +60,12 @@ function SettingsPage() {
       if (!response.ok) {
 
         throw new Error(
-          data.detail || "Failed to save broker"
+          data.detail || "Connection failed"
         );
       }
 
       setMessage(
-        "Broker configuration saved successfully"
+        "Deriv account connected successfully"
       );
 
     } catch (err) {
@@ -82,77 +82,58 @@ function SettingsPage() {
 
     <DashboardLayout>
 
-      <div style={containerStyle}>
+      <div style={pageStyle}>
 
-        <h1 style={titleStyle}>
-          Broker Settings
-        </h1>
+        <div style={heroCard}>
+
+          <div style={iconWrapper}>
+            <PlugZap size={38} />
+          </div>
+
+          <h1 style={titleStyle}>
+            Connect Trading Account
+          </h1>
+
+          <p style={subtitleStyle}>
+            Securely connect your Deriv account
+            and activate automated trading.
+          </p>
+
+        </div>
 
         <div style={settingsCard}>
 
           <div style={settingItem}>
-            <label>Broker Name</label>
+
+            <label style={labelStyle}>
+              Deriv API Token
+            </label>
 
             <input
               type="text"
-              name="broker_name"
-              value={form.broker_name}
-              onChange={handleChange}
-              placeholder="Deriv"
+              value={apiToken}
+              onChange={(e) =>
+                setApiToken(e.target.value)
+              }
+              placeholder="Paste your Deriv API token"
               style={inputStyle}
             />
+
           </div>
 
-          <div style={settingItem}>
-            <label>Deriv API Token</label>
+          <div style={pairBox}>
 
-            <input
-              type="text"
-              name="api_token"
-              value={form.api_token}
-              onChange={handleChange}
-              placeholder="Enter Deriv API Token"
-              style={inputStyle}
-            />
-          </div>
+            <div style={pairHeader}>
+              <ShieldCheck size={18} />
+              Default Trading Pairs
+            </div>
 
-          <div style={settingItem}>
-            <label>Deriv App ID</label>
+            <div style={pairList}>
+              <span style={pairBadge}>R_100</span>
+              <span style={pairBadge}>R_75</span>
+              <span style={pairBadge}>R_50</span>
+            </div>
 
-            <input
-              type="text"
-              name="app_id"
-              value={form.app_id}
-              onChange={handleChange}
-              placeholder="Enter Deriv App ID"
-              style={inputStyle}
-            />
-          </div>
-
-          <div style={settingItem}>
-            <label>Trading Symbols</label>
-
-            <input
-              type="text"
-              name="symbols"
-              value={form.symbols}
-              onChange={handleChange}
-              placeholder="R_100"
-              style={inputStyle}
-            />
-          </div>
-
-          <div style={settingItem}>
-            <label>Risk Per Trade (%)</label>
-
-            <input
-              type="number"
-              name="risk_per_trade"
-              value={form.risk_per_trade}
-              onChange={handleChange}
-              placeholder="1"
-              style={inputStyle}
-            />
           </div>
 
           {message && (
@@ -168,14 +149,14 @@ function SettingsPage() {
           )}
 
           <button
-            style={saveButton}
-            onClick={saveBroker}
+            style={connectButton}
+            onClick={connectBroker}
             disabled={loading}
           >
             {
               loading
-                ? "Saving..."
-                : "Save Broker"
+                ? "Connecting..."
+                : "Connect Account"
             }
           </button>
 
@@ -187,21 +168,43 @@ function SettingsPage() {
   );
 }
 
-const containerStyle = {
-  color: "white"
+const pageStyle = {
+  color: "white",
+  maxWidth: "700px"
+};
+
+const heroCard = {
+  marginBottom: "30px"
+};
+
+const iconWrapper = {
+  width: "70px",
+  height: "70px",
+  borderRadius: "20px",
+  background: "rgba(251,191,36,0.1)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#fbbf24",
+  marginBottom: "20px"
 };
 
 const titleStyle = {
-  fontSize: "32px",
-  marginBottom: "30px"
+  fontSize: "42px",
+  marginBottom: "10px"
+};
+
+const subtitleStyle = {
+  color: "#94a3b8",
+  fontSize: "16px",
+  lineHeight: "1.6"
 };
 
 const settingsCard = {
   background: "#0f172a",
   border: "1px solid #1e293b",
-  borderRadius: "20px",
-  padding: "40px",
-  maxWidth: "600px"
+  borderRadius: "24px",
+  padding: "40px"
 };
 
 const settingItem = {
@@ -210,43 +213,77 @@ const settingItem = {
   marginBottom: "24px"
 };
 
+const labelStyle = {
+  marginBottom: "12px",
+  fontWeight: "600"
+};
+
 const inputStyle = {
-  marginTop: "10px",
-  padding: "14px",
+  padding: "16px",
   background: "#020617",
   border: "1px solid #334155",
-  borderRadius: "10px",
+  borderRadius: "14px",
   color: "white",
+  fontSize: "15px"
+};
+
+const pairBox = {
+  background: "rgba(15,23,42,0.7)",
+  border: "1px solid #1e293b",
+  borderRadius: "18px",
+  padding: "20px",
+  marginBottom: "24px"
+};
+
+const pairHeader = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  marginBottom: "16px",
+  color: "#fbbf24",
+  fontWeight: "700"
+};
+
+const pairList = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap"
+};
+
+const pairBadge = {
+  background: "#020617",
+  border: "1px solid #334155",
+  padding: "10px 16px",
+  borderRadius: "12px",
   fontSize: "14px"
 };
 
-const saveButton = {
-  background: "#10b981",
+const connectButton = {
+  width: "100%",
+  padding: "18px",
   border: "none",
-  padding: "16px 24px",
-  borderRadius: "12px",
+  borderRadius: "16px",
+  background: "#10b981",
   color: "white",
   fontWeight: "700",
-  cursor: "pointer",
-  width: "100%"
+  fontSize: "15px",
+  cursor: "pointer"
 };
 
 const successBox = {
   background: "#064e3b",
   color: "#6ee7b7",
   padding: "14px",
-  borderRadius: "10px",
-  marginBottom: "20px",
-  fontSize: "14px"
+  borderRadius: "12px",
+  marginBottom: "20px"
 };
 
 const errorBox = {
   background: "#7f1d1d",
   color: "#fca5a5",
   padding: "14px",
-  borderRadius: "10px",
-  marginBottom: "20px",
-  fontSize: "14px"
+  borderRadius: "12px",
+  marginBottom: "20px"
 };
 
 export default SettingsPage;

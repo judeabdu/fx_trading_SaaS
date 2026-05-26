@@ -23,14 +23,14 @@ const Sidebar = ({ handleLogout }) => {
 
       <div style={logoArea}>
 
-        <div style={judeLogoSmall}>
+        <div style={leigerLogoSmall}>
           J
         </div>
 
         {
           !isMobile && (
             <h2 style={sidebarBrand}>
-              JUDE
+              LEIGER
               <span style={{ color: "#fbbf24" }}>
                 FX
               </span>
@@ -226,7 +226,7 @@ const logoArea = {
   marginBottom: "40px"
 };
 
-const judeLogoSmall = {
+const leigerLogoSmall = {
   background: "#fbbf24",
   color: "#000",
   width: "38px",
