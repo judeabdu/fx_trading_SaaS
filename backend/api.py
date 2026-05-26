@@ -1,7 +1,19 @@
 import threading
 import time
-from database import engine
-from models import Base
+
+from datetime import datetime
+
+from database import (
+    engine,
+    SessionLocal
+)
+
+from models import (
+    Base,
+    User,
+    BrokerAccount,
+    TradeHistory
+)
 
 from fastapi import (
     FastAPI,
@@ -14,13 +26,6 @@ from fastapi.middleware.cors import (
 )
 
 from sqlalchemy.orm import Session
-
-from database import SessionLocal
-
-from models import (
-    User,
-    BrokerAccount
-)
 
 from schemas import (
     UserCreate,
@@ -35,7 +40,6 @@ from auth import (
 )
 
 from strategy import start_strategy
-
 
 app = FastAPI()
 
@@ -284,6 +288,82 @@ def bot_status():
 
     return {
         "running": bot_running
+    }
+
+# =========================
+# REAL ANALYTICS
+# =========================
+
+@app.get("/analytics")
+def analytics(
+    db: Session = Depends(get_db)
+):
+
+    trades = db.query(
+        TradeHistory
+    ).all()
+
+    total_trades = len(trades)
+
+    wins = len([
+        t for t in trades
+        if t.profit_loss > 0
+    ])
+
+    losses = len([
+        t for t in trades
+        if t.profit_loss <= 0
+    ])
+
+    total_profit = sum([
+        t.profit_loss
+        for t in trades
+    ])
+
+    win_rate = (
+        (wins / total_trades) * 100
+        if total_trades > 0
+        else 0
+    )
+
+    running_equity = 0
+
+    chart_data = []
+
+    for trade in trades:
+
+        running_equity += trade.profit_loss
+
+        chart_data.append({
+
+            "time":
+                trade.created_at.strftime(
+                    "%d %b"
+                ),
+
+            "equity":
+                running_equity
+        })
+
+    return {
+
+        "win_rate":
+            round(win_rate, 2),
+
+        "total_trades":
+            total_trades,
+
+        "wins":
+            wins,
+
+        "losses":
+            losses,
+
+        "total_profit":
+            round(total_profit, 2),
+
+        "chart_data":
+            chart_data
     }
 
 # =========================

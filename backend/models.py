@@ -107,3 +107,30 @@ class BrokerAccount(Base):
         "User",
         back_populates="broker_accounts"
     )
+from sqlalchemy import Float, DateTime
+from datetime import datetime
+
+class TradeHistory(Base):
+
+    __tablename__ = "trade_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    symbol = Column(String(50))
+
+    signal = Column(String(20))
+
+    entry_price = Column(Float)
+
+    exit_price = Column(Float)
+
+    profit_loss = Column(Float)
+
+    confidence = Column(Float)
+
+    status = Column(String(20))
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
