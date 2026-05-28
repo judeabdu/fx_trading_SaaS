@@ -24,6 +24,12 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     const rawToken = localStorage.getItem("deriv_api_token") || localStorage.getItem("goldbot_token");
 
+    // Diagnostic console tracer
+    console.log("=== 🔍 RUNTIME TOKEN DIAGNOSTIC ===");
+    console.log("1. Raw Token Type:", typeof rawToken);
+    console.log("2. Literal Value Read:", `[${rawToken}]`);
+    console.log("==================================");
+
     if (!rawToken || rawToken === "undefined" || rawToken === "null") {
       setBalance("Configure Token");
       return;
@@ -40,44 +46,49 @@ export const SocketProvider = ({ children }) => {
       socketInitialized.current = true;
 
       connectDerivSocket(cleanToken, (data) => {
-        // 1. CATCH DISCONNECTS OR AUTH ERRORS IMMEDIATELY
+        if (!data) return;
+
+        // 1. CATCH ERRORS SAFELY
         if (data.error) {
-          console.error("❌ Stream Error:", data.error.message);
-          setBalance("Auth Error");
+          console.error("❌ Context Level Error:", data.error.message);
+          if (data.msg_type === "authorize") {
+            setBalance("Auth Error");
+            socketInitialized.current = false;
+          }
           return;
         }
 
-        // 2. UNIVERSAL BALANCE PARSER (Handles Live, Demo, and Sub-account arrays)
-        const balanceData = data.balance || data.bch;
-        if (balanceData) {
-          const currentBalance = balanceData.balance !== undefined ? balanceData.balance : balanceData;
-          const currentCurrency = balanceData.currency || "USD";
-          
+        // 2. UNIVERSAL BALANCE STATE HANDLING
+        const balanceSource = data.balance || data.bch;
+        if (balanceSource) {
+          const currentBalance = balanceSource.balance !== undefined ? balanceSource.balance : balanceSource;
+          const currentCurrency = balanceSource.currency || "USD";
           setBalance(Number(currentBalance).toFixed(2));
           setCurrency(currentCurrency);
-          return;
         }
 
-        // 3. UPDATE LIVE TICK PRICES
+        // 3. REAL-TIME MARKET TICK FEEDS
         if (data.msg_type === "tick" && data.tick) {
           setMarketPrices((prev) => ({
             ...prev,
             [data.tick.symbol]: data.tick.quote
           }));
-          return;
         }
 
-        // 4. PROCESS PERFORMANCE HISTORIES
+        // 4. DEFENSIVE HISTORICAL PERFORMANCE ANALYSIS LAYER (Anti-Crash Fix)
         if (data.msg_type === "profit" || data.profit_table) {
-          const profitSource = data.profit || data.profit_table;
-          const trades = profitSource?.transactions || [];
+          const profitPayload = data.profit || data.profit_table;
           
-          if (!trades || trades.length === 0) {
+          // Defensively check for array structure presence before triggering .map loops
+          const trades = profitPayload && profitPayload.transactions ? profitPayload.transactions : null;
+          
+          if (!trades || !Array.isArray(trades) || trades.length === 0) {
             setWinRate("0%");
             setRiskReward("1 : 0");
             setTotalTrades("0");
-            setGrowthPercentage("0%");
-            setDisciplineAssessment("No past execution data found on this account index.");
+            setGrowthPercentage(`0.00 ${currency}`);
+            setDisciplineAssessment("Stable allocation profile. Waiting for historical analytics telemetry...");
+            setEquityCurve([]);
             return;
           }
 
@@ -89,7 +100,7 @@ export const SocketProvider = ({ children }) => {
           let runningEquity = 0;
 
           const historicalPoints = [...trades].reverse().map((tx, index) => {
-            const profitValue = parseFloat(tx.profit);
+            const profitValue = parseFloat(tx.profit) || 0;
             runningEquity += profitValue;
 
             if (profitValue > 0) {
@@ -117,7 +128,7 @@ export const SocketProvider = ({ children }) => {
           setWinRate(`${computedWinRate}%`);
           setRiskReward(computedRR);
           setEquityCurve(historicalPoints);
-          setGrowthPercentage(`${finalGrowth} ${profitSource.currency || "USD"}`);
+          setGrowthPercentage(`${finalGrowth} ${profitPayload.currency || "USD"}`);
 
           if (parseFloat(computedWinRate) >= 55 && (avgWin / avgLoss) >= 1.5) {
             setDisciplineAssessment("Strong rule-based adherence and excellent drawdown control. Execution parameters indicate institutional-grade risk mitigation, high capital pool preservation, and consistent profit extraction efficiency.");
