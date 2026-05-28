@@ -51,6 +51,7 @@ class User(Base):
 # =========================
 class BrokerAccount(Base):
     __tablename__ = "broker_accounts"
+    is_active = Column(Boolean, default=False)
 
     id = Column(
         Integer,
