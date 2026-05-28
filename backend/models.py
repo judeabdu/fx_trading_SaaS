@@ -4,7 +4,8 @@ from sqlalchemy import (
     String,
     Float,
     ForeignKey,
-    DateTime
+    DateTime,
+    Boolean  # <--- FIX 1: Added Boolean import
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -51,6 +52,8 @@ class User(Base):
 # =========================
 class BrokerAccount(Base):
     __tablename__ = "broker_accounts"
+    
+    # <--- FIX 2: Moved inside the class properly
     is_active = Column(Boolean, default=False)
 
     id = Column(
