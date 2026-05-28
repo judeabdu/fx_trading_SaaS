@@ -47,7 +47,7 @@ def get_db():
         db.close()
 
 # =========================
-# Pydantic Schemas
+# PYDANTIC SCHEMAS
 # =========================
 class BrokerConnectRequest(BaseModel):
     email: str
@@ -124,7 +124,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     }
 
 # =========================
-# SAVE BROKER ACCOUNT (Consolidated)
+# SAVE BROKER ACCOUNT
 # =========================
 @app.post("/save-broker")
 def save_broker(payload: BrokerConnectRequest, db: Session = Depends(get_db)):
@@ -143,7 +143,7 @@ def save_broker(payload: BrokerConnectRequest, db: Session = Depends(get_db)):
         existing_account.broker_name = payload.broker_name
         existing_account.api_token = payload.api_token
         existing_account.app_id = payload.app_id
-        # Keeps your structural defaults from route 1 safe if they aren't provided in the payload
+        
         if not hasattr(existing_account, 'symbols') or not existing_account.symbols:
             existing_account.symbols = "frxXAUUSD,frxEURUSD,frxGBPUSD"
         if not hasattr(existing_account, 'risk_per_trade') or not existing_account.risk_per_trade:
@@ -154,7 +154,7 @@ def save_broker(payload: BrokerConnectRequest, db: Session = Depends(get_db)):
             broker_name=payload.broker_name,
             api_token=payload.api_token,
             app_id=payload.app_id,
-            symbols="frxXAUUSD,frxEURUSD,frxGBPUSD",  # Safe defaults preserved
+            symbols="frxXAUUSD,frxEURUSD,frxGBPUSD",
             risk_per_trade=0.01
         )
         db.add(account)
