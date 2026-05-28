@@ -12,7 +12,6 @@ export const SocketProvider = ({ children }) => {
     R_50: "--"
   });
 
-  // Dynamic Metrics derived from real historical trades
   const [winRate, setWinRate] = useState("Calculating...");
   const [riskReward, setRiskReward] = useState("Calculating...");
   const [totalTrades, setTotalTrades] = useState("0");
@@ -23,39 +22,39 @@ export const SocketProvider = ({ children }) => {
   const socketInitialized = useRef(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("deriv_api_token") || localStorage.getItem("goldbot_token");
+    // 1. Get raw token value from local storage keys
+    const rawToken = localStorage.getItem("deriv_api_token") || localStorage.getItem("goldbot_token");
 
-    const isValidToken = token && 
-                         token !== "undefined" && 
-                         token !== "null" && 
-                         token.trim() !== "";
-
-    if (!isValidToken) {
+    if (!rawToken || rawToken === "undefined" || rawToken === "null") {
       setBalance("Configure Token");
-      setWinRate("No Data");
-      setRiskReward("No Data");
+      return;
+    }
+
+    // 🔥 CRITICAL DATA CLEANING LAYER:
+    // Strips away literal single quotes, double quotes, backticks, and whitespace characters
+    const cleanToken = rawToken.replace(/['"`\s]+/g, '').trim();
+
+    if (cleanToken.length < 5) {
+      setBalance("Invalid Key Structure");
       return;
     }
 
     if (!socketInitialized.current) {
       socketInitialized.current = true;
 
-      connectDerivSocket(token.trim(), (data) => {
-        // 1. CLEAR AUTH ERRORS
+      connectDerivSocket(cleanToken, (data) => {
         if (data.msg_type === "authorize" && data.error) {
-          console.error("❌ Auth Error:", data.error.message);
+          console.error("❌ Context Level Auth Failure:", data.error.message);
           setBalance("Auth Error");
-          setWinRate("Auth Error");
+          socketInitialized.current = false;
           return;
         }
 
-        // 2. STREAM ACCOUNT BALANCE
         if (data.msg_type === "balance" && data.balance) {
           setBalance(Number(data.balance.balance).toFixed(2));
           setCurrency(data.balance.currency);
         }
 
-        // 3. STREAM LIVE TICK PRICES
         if (data.msg_type === "tick" && data.tick) {
           setMarketPrices((prev) => ({
             ...prev,
@@ -63,7 +62,6 @@ export const SocketProvider = ({ children }) => {
           }));
         }
 
-        // 4. PROCESS HISTORICAL TRANSACTION METRICS
         if (data.msg_type === "profit" && data.profit) {
           const trades = data.profit.transactions || [];
           
@@ -114,7 +112,6 @@ export const SocketProvider = ({ children }) => {
           setEquityCurve(historicalPoints);
           setGrowthPercentage(`${finalGrowth} ${data.profit.currency || "USD"}`);
 
-          // Strategy Discipline Grading Loop
           if (parseFloat(computedWinRate) >= 55 && (avgWin / avgLoss) >= 1.5) {
             setDisciplineAssessment("Strong rule-based adherence and excellent drawdown control. Execution parameters indicate institutional-grade risk mitigation, high capital pool preservation, and consistent profit extraction efficiency.");
           } else {
