@@ -20,10 +20,16 @@ export const connectDerivSocket = (apiToken, onMessage) => {
 
   socket.onopen = () => {
     console.log(`📡 Connected via Channel [${TARGET_APP_ID}]. Sending sanitized token...`);
+    
     const cleanToken = apiToken.replace(/['"`\s]+/g, '').trim();
-    socket.send(JSON.stringify({ authorize: cleanToken }));
+    
+    // Ensure this object payload strictly matches the required schema structure
+    const authPayload = { authorize: cleanToken };
+    
+    console.log("📤 Transmitting Auth Payload Object:", JSON.stringify(authPayload));
+    socket.send(JSON.stringify(authPayload));
 
-    // Initialize immediate market volatility tickers
+    // ✅ FIXED: Market tick requests are now correctly inside the onopen lifecycle block
     ["R_100", "R_75", "R_50"].forEach((symbol) => {
       socket.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
     });

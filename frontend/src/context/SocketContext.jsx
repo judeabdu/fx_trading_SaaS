@@ -24,6 +24,12 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     const rawToken = localStorage.getItem("deriv_api_token") || localStorage.getItem("goldbot_token");
 
+    // Runtime trace diagnostics to catch hidden spaces or structure faults instantly
+    console.log("=== 🔍 RUNTIME TOKEN DIAGNOSTIC ===");
+    console.log("1. Raw Token Type:", typeof rawToken);
+    console.log("2. Literal Value Read:", `[${rawToken}]`);
+    console.log("==================================");
+
     if (!rawToken || rawToken === "undefined" || rawToken === "null") {
       setBalance("Configure Token");
       return;
@@ -121,9 +127,6 @@ export const SocketProvider = ({ children }) => {
         }
       });
     }
-
-    // 🛑 REMOVED THE ACCIDENTAL DISCONNECT TEARDOWN ON COMPONENT UNMOUNT
-    // This allows the socket session stream to stay completely alive across page switches
   }, []);
 
   return (
