@@ -1,5 +1,11 @@
 let socket = null;
 
+/**
+ * Establishes a highly resilient WebSocket connection to Deriv.
+ * Passes clean raw data streams directly to the global context layer.
+ * @param {string} apiToken - Your active verified Deriv API token.
+ * @param {function} onMessage - Callback handler for state distribution.
+ */
 export const connectDerivSocket = (apiToken, onMessage) => {
   if (socket) {
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
@@ -12,9 +18,13 @@ export const connectDerivSocket = (apiToken, onMessage) => {
 
   socket.onopen = () => {
     console.log(`📡 Connected via Channel [${TARGET_APP_ID}]. Sending sanitized token...`);
+    
     const cleanToken = apiToken.replace(/['"`\s]+/g, '').trim();
-    socket.send(JSON.stringify({ authorize: cleanToken }));
+    const authPayload = { authorize: cleanToken };
+    
+    socket.send(JSON.stringify(authPayload));
 
+    // Initialize market volatility tickers immediately on layout launch
     ["R_100", "R_75", "R_50"].forEach((symbol) => {
       socket.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
     });
@@ -24,22 +34,16 @@ export const connectDerivSocket = (apiToken, onMessage) => {
     try {
       const data = JSON.parse(event.data);
 
-      if (data.error) {
-        console.warn(`⚠️ Deriv Engine Gateway Warning [${data.msg_type}]:`, data.error.message);
-        if (data.msg_type === "authorize") {
-          disconnectDerivSocket();
-        }
-        onMessage(data);
-        return;
-      }
-
-      if (data.msg_type === "authorize") {
+      // Handle successful validation state parameters
+      if (data.msg_type === "authorize" && !data.error) {
         console.log("✅ Identity verified! Triggering real-time account data subscriptions...");
         socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
         socket.send(JSON.stringify({ profit_table: 1, limit: 100 }));
       }
 
+      // Pass raw data objects to context listener untouched
       onMessage(data);
+
     } catch (err) {
       console.error("❌ Message parsing extraction error:", err);
     }

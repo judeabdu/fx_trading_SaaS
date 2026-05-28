@@ -42,8 +42,10 @@ export const SocketProvider = ({ children }) => {
       connectDerivSocket(cleanToken, (data) => {
         if (!data) return;
 
-        // 1. CATCH DISCONNECTS OR PERMISSION ERROR CODES
+        // 1. SAFE ERROR MANAGEMENT LAYER (Never blocks other streams)
         if (data.error) {
+          console.warn(`⚠️ Filtered Error on [${data.msg_type}]:`, data.error.message);
+          
           if (data.msg_type === "profit_table" || data.msg_type === "profit") {
             setWinRate("Demo Limit");
             setRiskReward("Demo Limit");
@@ -56,19 +58,18 @@ export const SocketProvider = ({ children }) => {
             setBalance("Auth Error");
             socketInitialized.current = false;
           }
-          return;
+          // No return statement here anymore! Let execution continue for ticks/balance.
         }
 
-        // 2. PARSE STREAMING BALANCE
+        // 2. PARSE LIVE STREAMING BALANCE
         if (data.balance && data.balance.balance !== undefined) {
           const actualBalance = parseFloat(data.balance.balance);
           const actualCurrency = data.balance.currency || "USD";
-          
           setBalance(actualBalance.toFixed(2));
           setCurrency(actualCurrency);
         }
 
-        // 3. PARSE REAL-TIME TICK PRICE CHANGES
+        // 3. PARSE REAL-TIME TICK PRICE CHANGES (Now completely immune to warning blocks)
         if (data.tick && data.tick.symbol && data.tick.quote !== undefined) {
           const symbol = data.tick.symbol;
           const quote = data.tick.quote;
@@ -79,8 +80,8 @@ export const SocketProvider = ({ children }) => {
           }));
         }
 
-        // 4. PARSE HISTORICAL DATA LEDGER
-        if (data.msg_type === "profit_table" || data.msg_type === "profit" || data.profit_table) {
+        // 4. PARSE HISTORICAL DATA LEDGER SAFELY
+        if ((data.msg_type === "profit_table" || data.msg_type === "profit" || data.profit_table) && !data.error) {
           const profitPayload = data.profit || data.profit_table;
           const trades = profitPayload && profitPayload.transactions ? profitPayload.transactions : [];
           
@@ -135,8 +136,6 @@ export const SocketProvider = ({ children }) => {
         }
       });
     }
-
-    // Completely empty dependency array ensures the socket runs continuously inside a persistent background thread
   }, []);
 
   return (
