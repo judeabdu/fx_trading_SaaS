@@ -1,89 +1,118 @@
 let socket = null;
+let isAuthorized = false;
 
 export const connectDerivSocket = (apiToken, onMessage) => {
-  // If a socket instance is already active, close it down before creating a new one
-  if (socket && socket.readyState !== WebSocket.CLOSED) {
-    socket.close();
+  if (!apiToken) {
+    console.error("❌ Missing API token");
+    return;
   }
+
+  // Clean token just in case (VERY important in real bugs)
+  const cleanToken = apiToken.trim();
+
+  // Close old socket safely
+  if (socket) {
+    try {
+      socket.close();
+    } catch (e) {}
+    socket = null;
+  }
+
+  isAuthorized = false;
 
   socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
 
   socket.onopen = () => {
-    console.log("🚀 Connection pipe open. Sending authorization token...");
-    
-    // STEP 1: Send authorization payload first. 
-    // Do NOT send balance or tick requests yet!
+    console.log("🚀 WebSocket connected. Sending authorization...");
+
     socket.send(
       JSON.stringify({
-        authorize: apiToken
+        authorize: cleanToken,
       })
     );
   };
 
   socket.onmessage = (event) => {
+    let data;
+
     try {
-      const data = JSON.parse(event.data);
+      data = JSON.parse(event.data);
+    } catch (err) {
+      console.error("❌ Invalid JSON from Deriv:", event.data);
+      return;
+    }
 
-      // STEP 2: Only spin up streams AFTER authorization is confirmed by the server
-      if (data.msg_type === "authorize") {
-        if (data.error) {
-          console.error("❌ Deriv Authorization Rejected:", data.error.message);
-          return;
-        }
-
-        console.log("✅ Authenticated with Deriv successfully. Activating streams...");
-
-        // Subscribe to balance tracking updates
-        socket.send(
-          JSON.stringify({
-            balance: 1,
-            subscribe: 1
-          })
-        );
-
-        // Subscribe to market ticking symbols
-        // NOTE: Deriv synthetics typically look like 'R_100', 'R_75', 'R_50' 
-        // or '1HZ100V', '1HZ75V', '1HZ50V' depending on your regional platform account.
-        const symbols = ["R_100", "R_75", "R_50"];
-        symbols.forEach((symbol) => {
-          socket.send(
-            JSON.stringify({
-              ticks: symbol,
-              subscribe: 1
-            })
-          );
-        });
+    // 🔐 AUTH RESPONSE
+    if (data.msg_type === "authorize") {
+      if (data.error) {
+        console.error("❌ Authorization failed:", data.error.message);
+        return;
       }
 
-      // Route all raw data back up to the frontend UI state listeners
-      onMessage(data);
+      console.log("✅ Authorized successfully");
+      isAuthorized = true;
 
-    } catch (parseError) {
-      console.error("❌ Error parsing message frame data:", parseError);
+      // Subscribe to balance AFTER auth success
+      socket.send(
+        JSON.stringify({
+          balance: 1,
+          subscribe: 1,
+        })
+      );
+
+      // Subscribe to ticks
+      const symbols = ["R_100", "R_75", "R_50"];
+
+      symbols.forEach((symbol) => {
+        socket.send(
+          JSON.stringify({
+            ticks: symbol,
+            subscribe: 1,
+          })
+        );
+      });
+
+      return;
+    }
+
+    // 🚨 HANDLE API ERRORS (important for debugging)
+    if (data.msg_type === "error") {
+      console.error("❌ Deriv API Error:", data.error?.message || data);
+      return;
+    }
+
+    // Only pass valid messages to UI after auth
+    if (isAuthorized) {
+      onMessage(data);
     }
   };
 
   socket.onerror = (err) => {
-    console.error("❌ Deriv socket error encountered:", err);
+    console.error("❌ WebSocket error:", err);
   };
 
   socket.onclose = (event) => {
-    console.log(`⚠️ Deriv socket disconnected. Code: ${event.code}, Reason: ${event.reason || "None specified"}`);
+    console.log(
+      `⚠️ Socket closed. Code: ${event.code}, Reason: ${event.reason || "none"}`
+    );
+    isAuthorized = false;
   };
 };
 
 export const disconnectDerivSocket = () => {
-  if (socket) {
-    // Gracefully unhook listeners to prevent memory leaks during component destruction
+  if (!socket) return;
+
+  try {
     socket.onopen = null;
     socket.onmessage = null;
     socket.onerror = null;
     socket.onclose = null;
-    
-    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-      socket.close();
-    }
-    socket = null;
-    console.log("🛑 Socket lifecycle teardown complete.");
-  }
+
+    socket.close();
+  } catch (e) {}
+
+  socket = null;
+  isAuthorized = false;
+
+  console.log("🛑 Socket lifecycle teardown complete.");
 };
