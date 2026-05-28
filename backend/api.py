@@ -563,3 +563,56 @@ def status():
             []
 
     }
+    
+    from pydantic import BaseModel
+
+
+class BrokerConnectRequest(BaseModel):
+    email: str
+    broker_name: str
+    api_token: str
+    app_id: str
+
+
+@app.post("/save-broker")
+def save_broker(
+    payload: BrokerConnectRequest,
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(User).filter(
+        User.email == payload.email
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User account not found"
+        )
+
+    existing = db.query(BrokerAccount).filter(
+        BrokerAccount.user_id == user.id
+    ).first()
+
+    if existing:
+
+        existing.broker_name = payload.broker_name
+        existing.api_token = payload.api_token
+        existing.app_id = payload.app_id
+
+    else:
+
+        broker = BrokerAccount(
+            user_id=user.id,
+            broker_name=payload.broker_name,
+            api_token=payload.api_token,
+            app_id=payload.app_id
+        )
+
+        db.add(broker)
+
+    db.commit()
+
+    return {
+        "message": "Broker connected successfully"
+    }
