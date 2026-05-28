@@ -2,9 +2,9 @@ let socket = null;
 
 /**
  * Establishes a highly resilient WebSocket connection to Deriv.
- * Cleans token input formatting to prevent structural validation issues.
- * * @param {string} apiToken - Your active Deriv API token (PAT).
- * @param {function} onMessage - Callback function to handle incoming data streams.
+ * Cleans data stream packages to map perfectly to React context states.
+ * @param {string} apiToken - Your active verified Deriv API token.
+ * @param {function} onMessage - Callback handler for state distribution.
  */
 export const connectDerivSocket = (apiToken, onMessage) => {
   if (socket) {
@@ -13,20 +13,17 @@ export const connectDerivSocket = (apiToken, onMessage) => {
     }
   }
 
-  // Use the universal public channel pool for processing authenticated profiles
+  // Use the verified public streaming channel pool
   const TARGET_APP_ID = "16929"; 
 
   socket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${TARGET_APP_ID}`);
 
   socket.onopen = () => {
     console.log(`📡 Connected via Channel [${TARGET_APP_ID}]. Sending sanitized token...`);
-    
-    // SANITATION LAYER: Completely strips out wrapping spaces, tabs, quotes, or line breaks
-    const cleanToken = apiToken.replace(/['"]+/g, '').trim();
-    
+    const cleanToken = apiToken.replace(/['"`\s]+/g, '').trim();
     socket.send(JSON.stringify({ authorize: cleanToken }));
 
-    // Request price feeds on layout initialization
+    // Initialize immediate market volatility tickers
     ["R_100", "R_75", "R_50"].forEach((symbol) => {
       socket.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
     });
@@ -36,6 +33,7 @@ export const connectDerivSocket = (apiToken, onMessage) => {
     try {
       const data = JSON.parse(event.data);
 
+      // 1. Handle Successful Handshake Response
       if (data.msg_type === "authorize") {
         if (data.error) {
           console.error("❌ Gateway Authorization Rejection:", data.error.message);
@@ -44,16 +42,24 @@ export const connectDerivSocket = (apiToken, onMessage) => {
           return;
         }
 
-        console.log("✅ Token successfully accepted! Syncing profile streams...");
+        console.log("✅ Identity verified! Triggering real-time account data subscriptions...");
 
-        // Fire metric streams sequentially
+        // Fire transaction history parameters and balances sequentially
         socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
         socket.send(JSON.stringify({ profit_table: 1, limit: 100 }));
       }
 
+      // 2. Direct normalization fallback layer for sub-components
+      // Guarantees fields match the target object keys expected by useSocket()
+      if (data.balance) data.msg_type = "balance";
+      if (data.profit_table) data.msg_type = "profit";
+      if (data.tick) data.msg_type = "tick";
+
+      // Forward directly to global states
       onMessage(data);
+
     } catch (err) {
-      console.error("❌ Message parsing error:", err);
+      console.error("❌ Message parsing extraction error:", err);
     }
   };
 
