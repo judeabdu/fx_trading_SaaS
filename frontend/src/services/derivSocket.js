@@ -16,7 +16,12 @@ export const connectDerivSocket = (apiToken, onMessage) => {
   }
 
   // 2. Initialize connection
-  socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+  // Inside src/services/derivSocket.js
+
+// 1. Clean out the old line: socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+// 2. REPLACE it with your exact registered key string from your screenshot:
+
+socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=33orcYikotBWnwrRzsFHz");
 
   socket.onopen = () => {
     console.log("🚀 WebSocket connected. Sending authorization packet...");

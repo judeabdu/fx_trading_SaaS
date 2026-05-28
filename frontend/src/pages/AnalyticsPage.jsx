@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from "react";
+import React from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import { connectDerivSocket, disconnectDerivSocket } from "../services/derivSocket";
+import { useSocket } from "../context/SocketContext";
 import {
   LineChart,
   Line,
@@ -12,111 +12,18 @@ import {
 } from "recharts";
 
 function AnalyticsPage() {
-  const [balance, setBalance] = useState("Loading...");
-  const [currency, setCurrency] = useState("");
-  
-  // Real dynamic analytical metrics hooks
-  const [winRate, setWinRate] = useState("Calculating...");
-  const [riskReward, setRiskReward] = useState("Calculating...");
-  const [totalTrades, setTotalTrades] = useState("0");
-  const [equityCurve, setEquityCurve] = useState([]);
-  const [growthPercentage, setGrowthPercentage] = useState("0%");
-  const [disciplineAssessment, setDisciplineAssessment] = useState("Evaluating cloud execution data stream...");
-
-  const socketInitialized = useRef(false);
-
-  useEffect(() => {
-    const token = localStorage.getItem("deriv_api_token");
-
-    if (token && !socketInitialized.current) {
-      socketInitialized.current = true;
-      
-      connectDerivSocket(token, (data) => {
-        // 1. DYNAMIC ACCOUNT BALANCE HANDLER
-        if (data.msg_type === "balance" && data.balance) {
-          setBalance(Number(data.balance.balance).toFixed(2));
-          setCurrency(data.balance.currency);
-        }
-
-        // 2. HISTORICAL PROFIT TABLE HANDLER (Calculates metrics from real closed contracts)
-        if (data.msg_type === "profit" && data.profit) {
-          const trades = data.profit.transactions || [];
-          
-          if (trades.length === 0) {
-            setWinRate("0%");
-            setRiskReward("N/A");
-            setTotalTrades("0");
-            setGrowthPercentage("0%");
-            setDisciplineAssessment("No trade execution history found on this asset account yet.");
-            return;
-          }
-
-          let wins = 0;
-          let totalProfit = 0;
-          let totalLoss = 0;
-          let winCount = 0;
-          let lossCount = 0;
-          let runningEquity = 0;
-          
-          // Generate chronological metrics array
-          const historicalPoints = trades.reverse().map((tx, index) => {
-            const profitValue = parseFloat(tx.profit);
-            runningEquity += profitValue;
-
-            if (profitValue > 0) {
-              wins++;
-              totalProfit += profitValue;
-              winCount++;
-            } else if (profitValue < 0) {
-              totalLoss += Math.abs(profitValue);
-              lossCount++;
-            }
-
-            return {
-              tradeIndex: `T-${index + 1}`,
-              equity: runningEquity.toFixed(2)
-            };
-          });
-
-          // Math Execution
-          const computedWinRate = ((wins / trades.length) * 100).toFixed(1);
-          const avgWin = winCount > 0 ? totalProfit / winCount : 0;
-          const avgLoss = lossCount > 0 ? totalLoss / lossCount : 1;
-          const computedRR = avgLoss > 0 ? `1 : ${(avgWin / avgLoss).toFixed(1)}` : "1 : 0.0";
-
-          // Calculate approximate profile growth trend
-          const finalGrowth = runningEquity > 0 ? `+${runningEquity.toFixed(1)}` : runningEquity.toFixed(1);
-
-          // Update metrics UI state hooks
-          setTotalTrades(trades.length.toString());
-          setWinRate(`${computedWinRate}%`);
-          setRiskReward(computedRR);
-          setEquityCurve(historicalPoints);
-          setGrowthPercentage(`${finalGrowth} ${data.profit.currency || ''}`);
-
-          // DYNAMIC FINANCIAL DISCIPLINE FEEDBACK ENGINE
-          if (parseFloat(computedWinRate) >= 60 && (avgWin / avgLoss) >= 1.5) {
-            setDisciplineAssessment("Excellent institutional grade risk management. Consistent target ratios detected, with well-structured trade placement and tight systemic drawdown control.");
-          } else if (parseFloat(computedWinRate) < 45) {
-            setDisciplineAssessment("Caution: High volatility exposure noted. Strategy indicators show over-leverage risks or impulsive entries. Tighten your trailing stops to protect current asset pools.");
-          } else {
-            setDisciplineAssessment("Stable distribution model. Strategy maintains normal operating compliance boundaries. Risk profiles show structured compound tracking parameters across recent execution history.");
-          }
-        }
-      });
-    }
-
-    return () => {
-      disconnectDerivSocket();
-      socketInitialized.current = false;
-    };
-  }, []);
+  // Grab live, processed transaction calculations directly from context hook
+  const { 
+    balance, currency, winRate, riskReward, 
+    totalTrades, equityCurve, growthPercentage, 
+    disciplineAssessment 
+  } = useSocket();
 
   return (
     <DashboardLayout>
       <div style={containerStyle}>
         
-        {/* REPORTING & ACCOUNT HEADER */}
+        {/* ACCOUNT STATUS METADATA OVERVIEW */}
         <div style={reportHeader}>
           <div style={tenantMeta}>
             <span style={tenantName}>FX-TRADING SaaS Engine</span>
@@ -139,11 +46,11 @@ function AnalyticsPage() {
           <div style={aiBadge}>AI ANALYSIS ACTIVE</div>
         </div>
 
-        {/* STATS GRID */}
+        {/* METRICS SUMMARY GRID */}
         <div style={statsGrid}>
           <AnalyticsCard
             title="Live Broker Balance"
-            value={currency ? `${currency} ${balance}` : balance}
+            value={balance === "Loading..." ? balance : `${currency} ${balance}`}
             color="#fbbf24"
           />
           <AnalyticsCard
@@ -163,7 +70,7 @@ function AnalyticsPage() {
           />
         </div>
 
-        {/* EQUITY GRAPH CARD */}
+        {/* ACCOUNT GRAPH TIMELINE */}
         <div style={chartCard}>
           <div style={chartHeader}>
             <h2 style={chartTitle}>Equity Curve (Real-Time Growth Timeline)</h2>
@@ -196,7 +103,7 @@ function AnalyticsPage() {
           </div>
         </div>
 
-        {/* FINANCIAL DISCIPLINE FEEDBACK */}
+        {/* RULE ADHERENCE EVALUATION */}
         <div style={insightCard}>
           <h2 style={insightTitle}>AI Financial Discipline Assessment</h2>
           <p style={insightText}>{disciplineAssessment}</p>
@@ -218,7 +125,7 @@ function AnalyticsCard({ title, value, color }) {
   );
 }
 
-// Styles Rules Objects
+// Layout Configuration Objects
 const containerStyle = { color: "white", padding: "10px 0" };
 const headerRow = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px", flexWrap: "wrap", gap: "15px" };
 const pageTitle = { fontSize: "32px", fontWeight: "700" };
