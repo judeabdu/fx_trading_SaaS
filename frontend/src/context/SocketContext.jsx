@@ -24,7 +24,6 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     const rawToken = localStorage.getItem("deriv_api_token") || localStorage.getItem("goldbot_token");
 
-    // Diagnostic console tracer
     console.log("=== 🔍 RUNTIME TOKEN DIAGNOSTIC ===");
     console.log("1. Raw Token Type:", typeof rawToken);
     console.log("2. Literal Value Read:", `[${rawToken}]`);
@@ -75,14 +74,14 @@ export const SocketProvider = ({ children }) => {
           }));
         }
 
-        // 4. DEFENSIVE HISTORICAL PERFORMANCE ANALYSIS LAYER (Anti-Crash Fix)
+        // 4. BULLETPROOF HISTORICAL ANALYSIS LAYER (Fixes the `.reverse()` crash)
         if (data.msg_type === "profit" || data.profit_table) {
           const profitPayload = data.profit || data.profit_table;
           
-          // Defensively check for array structure presence before triggering .map loops
-          const trades = profitPayload && profitPayload.transactions ? profitPayload.transactions : null;
+          // Fallback to empty array to ensure it never evaluates to null or undefined
+          const trades = profitPayload && profitPayload.transactions ? profitPayload.transactions : [];
           
-          if (!trades || !Array.isArray(trades) || trades.length === 0) {
+          if (!Array.isArray(trades) || trades.length === 0) {
             setWinRate("0%");
             setRiskReward("1 : 0");
             setTotalTrades("0");
@@ -99,6 +98,7 @@ export const SocketProvider = ({ children }) => {
           let lossCount = 0;
           let runningEquity = 0;
 
+          // ✅ SAFE: trades is guaranteed to be an array, making [...trades] completely crash-proof
           const historicalPoints = [...trades].reverse().map((tx, index) => {
             const profitValue = parseFloat(tx.profit) || 0;
             runningEquity += profitValue;
