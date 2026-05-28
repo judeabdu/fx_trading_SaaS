@@ -1,59 +1,44 @@
 import React, { useState } from "react";
-
 import DashboardLayout from "../components/DashboardLayout";
-
-import {
-  ShieldCheck,
-  PlugZap
-} from "lucide-react";
+import { ShieldCheck, PlugZap } from "lucide-react";
 
 function SettingsPage() {
-
   const [apiToken, setApiToken] = useState("");
-
   const [loading, setLoading] = useState(false);
-
   const [message, setMessage] = useState("");
-
   const [error, setError] = useState("");
 
   const connectBroker = async () => {
+    // 1. Basic Client-Side Validation
+    if (!apiToken.trim()) {
+      setError("Please paste a valid Deriv API token first.");
+      return;
+    }
+
+    const userEmail = localStorage.getItem("user_email");
+    if (!userEmail) {
+      setError("User email not found. Please log out and log back in.");
+      return;
+    }
 
     setLoading(true);
-
     setMessage("");
-
     setError("");
 
     try {
-
+      // 2. Fetch Request sending exact keys expected by FastAPI BrokerConnectRequest schema
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/save-broker`,
         {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json"
           },
-
           body: JSON.stringify({
-
-            email:
-              localStorage.getItem(
-                "user_email"
-              ),
-
-            api_token:
-              apiToken,
-
-            app_id:
-              "1089",
-
-            symbols:
-              "R_100,R_75,R_50",
-
-            risk_per_trade:
-              0.01
+            email: userEmail.trim(),
+            broker_name: "Deriv", // Fixed: Added mandatory schema property
+            api_token: apiToken.trim(),
+            app_id: "1089" // Sent as string (Backend will safely process it)
           })
         }
       );
@@ -61,122 +46,79 @@ function SettingsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-
-        throw new Error(
-          data.detail ||
-          "Connection failed"
-        );
+        // Fallback for structured array errors vs standard detail objects
+        const backendError = typeof data.detail === "object" 
+          ? JSON.stringify(data.detail) 
+          : data.detail;
+          
+        throw new Error(backendError || "Connection failed");
       }
 
-      localStorage.setItem(
-        "deriv_api_token",
-        apiToken
-      );
-
-      setMessage(
-        "Deriv account connected successfully"
-      );
-
+      localStorage.setItem("deriv_api_token", apiToken);
+      setMessage("Deriv account connected successfully");
     } catch (err) {
-
       setError(err.message);
-
     } finally {
-
       setLoading(false);
     }
   };
 
   return (
-
     <DashboardLayout>
-
       <div style={pageStyle}>
-
         <div style={heroCard}>
-
           <div style={iconWrapper}>
             <PlugZap size={38} />
           </div>
-
-          <h1 style={titleStyle}>
-            Connect Trading Account
-          </h1>
-
+          <h1 style={titleStyle}>Connect Trading Account</h1>
           <p style={subtitleStyle}>
-            Securely connect your Deriv account
-            and activate automated trading.
+            Securely connect your Deriv account and activate automated trading.
           </p>
-
         </div>
 
         <div style={settingsCard}>
-
           <div style={settingItem}>
-
-            <label style={labelStyle}>
-              Deriv API Token
-            </label>
-
+            <label style={labelStyle}>Deriv API Token</label>
             <input
               type="text"
               value={apiToken}
-              onChange={(e) =>
-                setApiToken(e.target.value)
-              }
+              onChange={(e) => setApiToken(e.target.value)}
               placeholder="Paste your Deriv API token"
               style={inputStyle}
             />
-
           </div>
 
           <div style={pairBox}>
-
             <div style={pairHeader}>
               <ShieldCheck size={18} />
               Active Trading Pairs
             </div>
-
             <div style={pairList}>
               <span style={pairBadge}>R_100</span>
               <span style={pairBadge}>R_75</span>
               <span style={pairBadge}>R_50</span>
             </div>
-
           </div>
 
-          {message && (
-            <div style={successBox}>
-              {message}
-            </div>
-          )}
-
-          {error && (
-            <div style={errorBox}>
-              {error}
-            </div>
-          )}
+          {message && <div style={successBox}>{message}</div>}
+          {error && <div style={errorBox}>{error}</div>}
 
           <button
             style={connectButton}
             onClick={connectBroker}
             disabled={loading}
           >
-            {
-              loading
-                ? "Connecting..."
-                : "Connect Account"
-            }
+            {loading ? "Connecting..." : "Connect Account"}
           </button>
-
         </div>
-
       </div>
-
     </DashboardLayout>
   );
 }
 
+// =========================
+// STYLES OBJECTS
+// =========================
 const pageStyle = {
   color: "white",
   maxWidth: "700px"

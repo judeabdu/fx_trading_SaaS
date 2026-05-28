@@ -124,15 +124,16 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     }
 
 # =========================
-# SAVE BROKER ACCOUNT
+# SAVE BROKER ACCOUNT (FIXED)
 # =========================
 @app.post("/save-broker")
 def save_broker(payload: BrokerConnectRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+    # Look up the user matching the incoming email string
+    user = db.query(User).filter(User.email == payload.email.strip()).first()
     if not user:
         raise HTTPException(
-            status_code=404,
-            detail="User account not found"
+            status_code=442,
+            detail=f"User account not found for email: {payload.email}"
         )
 
     existing_account = db.query(BrokerAccount).filter(
@@ -142,7 +143,7 @@ def save_broker(payload: BrokerConnectRequest, db: Session = Depends(get_db)):
     if existing_account:
         existing_account.broker_name = payload.broker_name
         existing_account.api_token = payload.api_token
-        existing_account.app_id = payload.app_id
+        existing_account.app_id = str(payload.app_id)  # Coerced dynamically to avoid string/int mismatches
         
         if not hasattr(existing_account, 'symbols') or not existing_account.symbols:
             existing_account.symbols = "frxXAUUSD,frxEURUSD,frxGBPUSD"
@@ -153,7 +154,7 @@ def save_broker(payload: BrokerConnectRequest, db: Session = Depends(get_db)):
             user_id=user.id,
             broker_name=payload.broker_name,
             api_token=payload.api_token,
-            app_id=payload.app_id,
+            app_id=str(payload.app_id),
             symbols="frxXAUUSD,frxEURUSD,frxGBPUSD",
             risk_per_trade=0.01
         )
@@ -202,17 +203,27 @@ def analytics(db: Session = Depends(get_db)):
     trades = db.query(TradeHistory).all()
     total_trades = len(trades)
 
+    if total_trades == 0:
+        return {
+            "win_rate": 0,
+            "total_trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "total_profit": 0,
+            "chart_data": []
+        }
+
     wins = len([t for t in trades if t.profit_loss > 0])
     losses = len([t for t in trades if t.profit_loss <= 0])
     total_profit = sum([t.profit_loss for t in trades])
-    win_rate = ((wins / total_trades) * 100) if total_trades > 0 else 0
+    win_rate = (wins / total_trades) * 100
 
     running_equity = 0
     chart_data = []
     for trade in trades:
         running_equity += trade.profit_loss
         chart_data.append({
-            "time": trade.created_at.strftime("%d %b"),
+            "time": trade.created_at.strftime("%d %b") if hasattr(trade, 'created_at') and trade.created_at else "N/A",
             "equity": running_equity
         })
 
