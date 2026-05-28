@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import { connectDerivSocket, disconnectDerivSocket } from "../services/derivSocket";
+import { useSocket } from "../context/SocketContext"; // Consume our unified global stream
 import { Activity, Bot, Cpu, ShieldCheck, Wifi, LineChart } from "lucide-react";
 
 function DashboardPage() {
@@ -8,16 +8,9 @@ function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [balance, setBalance] = useState(0);
-  const [currency, setCurrency] = useState("USD");
-  const [marketPrices, setMarketPrices] = useState({
-    R_100: "--",
-    R_75: "--",
-    R_50: "--",
-  });
 
-  // Track socket initialization state to avoid double activation loops during re-renders
-  const socketInitialized = useRef(false);
+  // Destructure real-time streaming data directly from global context
+  const { balance, currency, marketPrices } = useSocket();
 
   const fetchBotStatus = async () => {
     try {
@@ -76,46 +69,14 @@ function DashboardPage() {
   };
 
   useEffect(() => {
-    // 1. Core initialization pull
+    // Initial fetch of internal strategy cloud status
     fetchBotStatus();
 
-    const token = localStorage.getItem("deriv_api_token");
-
-    // 2. Establish the WebSocket only once using the mutable ref flag
-    if (token && !socketInitialized.current) {
-      socketInitialized.current = true;
-      
-      connectDerivSocket(token, (data) => {
-        // Clear explicit downstream auth failures out of the console onto the dashboard UI
-        if (data.msg_type === "authorize" && data.error) {
-          setError(`Broker Auth Error: ${data.error.message}`);
-          return;
-        }
-
-        // ACCOUNT BALANCE
-        if (data.msg_type === "balance" && data.balance) {
-          setBalance(data.balance.balance);
-          setCurrency(data.balance.currency);
-        }
-
-        // LIVE TICKS
-        if (data.msg_type === "tick" && data.tick) {
-          setMarketPrices((prev) => ({
-            ...prev,
-            [data.tick.symbol]: data.tick.quote,
-          }));
-        }
-      });
-    }
-
-    // 3. Keep polling the internal engine status isolated without hitting WebSockets
+    // Setup an isolated, lightweight polling cycle for the backend process status
     const interval = setInterval(fetchBotStatus, 3000);
 
-    // 4. Teardown completely when navigating away
     return () => {
       clearInterval(interval);
-      disconnectDerivSocket();
-      socketInitialized.current = false;
     };
   }, []);
 
@@ -153,11 +114,11 @@ function DashboardPage() {
           <StatCard
             icon={<Activity size={24} />}
             title="Account Balance"
-            value={`${currency} ${Number(balance).toFixed(2)}`}
+            value={balance === "Loading..." ? balance : `${currency} ${balance}`}
           />
-          <StatCard icon={<LineChart size={24} />} title="R_100 Market" value={marketPrices.R_100} />
-          <StatCard icon={<LineChart size={24} />} title="R_75 Market" value={marketPrices.R_75} />
-          <StatCard icon={<LineChart size={24} />} title="R_50 Market" value={marketPrices.R_50} />
+          <StatCard icon={<LineChart size={24} />} title="R_100 Market" value={marketPrices?.R_100 || "--"} />
+          <StatCard icon={<LineChart size={24} />} title="R_75 Market" value={marketPrices?.R_75 || "--"} />
+          <StatCard icon={<LineChart size={24} />} title="R_50 Market" value={marketPrices?.R_50 || "--"} />
           <StatCard
             icon={<Bot size={24} />}
             title="AI Engine"
