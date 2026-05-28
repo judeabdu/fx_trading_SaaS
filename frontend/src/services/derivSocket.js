@@ -15,13 +15,8 @@ export const connectDerivSocket = (apiToken, onMessage) => {
     }
   }
 
-  // 2. Initialize connection
-  // Inside src/services/derivSocket.js
-
-// 1. Clean out the old line: socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
-// 2. REPLACE it with your exact registered key string from your screenshot:
-
-socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=33orcYikotBWnwrRzsFHz");
+  // 2. Initialize connection with a valid public numerical App ID that allows cross-account tracking
+  socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=16929");
 
   socket.onopen = () => {
     console.log("🚀 WebSocket connected. Sending authorization packet...");
@@ -99,7 +94,6 @@ socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=33orcYikotBWnw
  */
 export const disconnectDerivSocket = () => {
   if (socket) {
-    // Remove listeners to skip unintended state-change checks during a forced cleanup
     socket.onopen = null;
     socket.onmessage = null;
     socket.onerror = null;
