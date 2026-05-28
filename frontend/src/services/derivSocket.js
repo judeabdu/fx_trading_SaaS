@@ -1,118 +1,71 @@
 let socket = null;
-let isAuthorized = false;
 
-export const connectDerivSocket = (apiToken, onMessage) => {
-  if (!apiToken) {
-    console.error("❌ Missing API token");
-    return;
-  }
+export const connectDerivSocket = (
+  apiToken,
+  onMessage
+) => {
 
-  // Clean token just in case (VERY important in real bugs)
-  const cleanToken = apiToken.trim();
-
-  // Close old socket safely
-  if (socket) {
-    try {
-      socket.close();
-    } catch (e) {}
-    socket = null;
-  }
-
-  isAuthorized = false;
-
-  socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+  socket = new WebSocket(
+    "wss://ws.derivws.com/websockets/v3?app_id=1089"
+  );
 
   socket.onopen = () => {
-    console.log("🚀 WebSocket connected. Sending authorization...");
+
+    console.log("✅ Connected to Deriv");
 
     socket.send(
       JSON.stringify({
-        authorize: cleanToken,
+        authorize: apiToken
       })
+    );
+
+    socket.send(
+      JSON.stringify({
+        balance: 1,
+        subscribe: 1
+      })
+    );
+
+    ["R_100", "R_75", "R_50"].forEach(
+      (symbol) => {
+
+        socket.send(
+          JSON.stringify({
+            ticks: symbol,
+            subscribe: 1
+          })
+        );
+      }
     );
   };
 
   socket.onmessage = (event) => {
-    let data;
 
-    try {
-      data = JSON.parse(event.data);
-    } catch (err) {
-      console.error("❌ Invalid JSON from Deriv:", event.data);
-      return;
-    }
+    const data = JSON.parse(event.data);
 
-    // 🔐 AUTH RESPONSE
-    if (data.msg_type === "authorize") {
-      if (data.error) {
-        console.error("❌ Authorization failed:", data.error.message);
-        return;
-      }
-
-      console.log("✅ Authorized successfully");
-      isAuthorized = true;
-
-      // Subscribe to balance AFTER auth success
-      socket.send(
-        JSON.stringify({
-          balance: 1,
-          subscribe: 1,
-        })
-      );
-
-      // Subscribe to ticks
-      const symbols = ["R_100", "R_75", "R_50"];
-
-      symbols.forEach((symbol) => {
-        socket.send(
-          JSON.stringify({
-            ticks: symbol,
-            subscribe: 1,
-          })
-        );
-      });
-
-      return;
-    }
-
-    // 🚨 HANDLE API ERRORS (important for debugging)
-    if (data.msg_type === "error") {
-      console.error("❌ Deriv API Error:", data.error?.message || data);
-      return;
-    }
-
-    // Only pass valid messages to UI after auth
-    if (isAuthorized) {
-      onMessage(data);
-    }
+    onMessage(data);
   };
 
   socket.onerror = (err) => {
-    console.error("❌ WebSocket error:", err);
+
+    console.error(
+      "❌ Deriv socket error",
+      err
+    );
   };
 
-  socket.onclose = (event) => {
+  socket.onclose = () => {
+
     console.log(
-      `⚠️ Socket closed. Code: ${event.code}, Reason: ${event.reason || "none"}`
+      "⚠️ Deriv socket disconnected"
     );
-    isAuthorized = false;
   };
 };
 
 export const disconnectDerivSocket = () => {
-  if (!socket) return;
 
-  try {
-    socket.onopen = null;
-    socket.onmessage = null;
-    socket.onerror = null;
-    socket.onclose = null;
+  if (socket) {
 
     socket.close();
-  } catch (e) {}
-
-  socket = null;
-  isAuthorized = false;
-
-  console.log("🛑 Socket lifecycle teardown complete.");
+  }
 };
