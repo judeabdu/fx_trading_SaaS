@@ -42,14 +42,14 @@ export const SocketProvider = ({ children }) => {
       connectDerivSocket(cleanToken, (data) => {
         if (!data) return;
 
-        // 1. CATCH SCOPE AND ERROR OBJECTS INGESTION
+        // 1. ISOLATE AND INTERCEPT PERMISSION WARNING PANELS
         if (data.error) {
           if (data.msg_type === "profit_table" || data.msg_type === "profit") {
             setWinRate("Demo Limit");
             setRiskReward("Demo Limit");
             setTotalTrades("0");
             setGrowthPercentage(`0.00 ${currency}`);
-            setDisciplineAssessment("Historical tracking skipped. Analytics ledger calls are restricted on demo keys.");
+            setDisciplineAssessment("Historical data analysis skipped. Analytics scope locked on Demo Tokens.");
             setEquityCurve([]);
           }
           if (data.msg_type === "authorize") {
@@ -59,25 +59,29 @@ export const SocketProvider = ({ children }) => {
           return;
         }
 
-        // 2. UNIVERSAL BALANCE STATE HANDLING
-        const balanceSource = data.balance || data.bch;
-        if (balanceSource) {
-          const currentBalance = balanceSource.balance !== undefined ? balanceSource.balance : balanceSource;
-          const currentCurrency = balanceSource.currency || "USD";
-          setBalance(Number(currentBalance).toFixed(2));
-          setCurrency(currentCurrency);
+        // 2. PARSE BROADCAST BALANCE DATA PACKETS (Matches both static state and recurring stream structures)
+        if (data.msg_type === "balance" || data.balance !== undefined) {
+          const balanceObj = data.balance;
+          if (balanceObj && balanceObj.balance !== undefined) {
+            setBalance(Number(balanceObj.balance).toFixed(2));
+            setCurrency(balanceObj.currency || "USD");
+          }
         }
 
-        // 3. REAL-TIME MARKET TICK FEEDS
-        if (data.msg_type === "tick" && data.tick) {
-          setMarketPrices((prev) => ({
-            ...prev,
-            [data.tick.symbol]: data.tick.quote
-          }));
+        // 3. REAL-TIME TICK FEED CAPTURE
+        if ((data.msg_type === "tick" || data.tick) && data.tick) {
+          const symbol = data.tick.symbol;
+          const quote = data.tick.quote;
+          if (symbol && quote !== undefined) {
+            setMarketPrices((prev) => ({
+              ...prev,
+              [symbol]: quote
+            }));
+          }
         }
 
         // 4. HISTORICAL PERFORMANCE ANALYSIS LAYER
-        if (data.msg_type === "profit" || data.profit_table) {
+        if (data.msg_type === "profit_table" || data.msg_type === "profit" || data.profit_table) {
           const profitPayload = data.profit || data.profit_table;
           const trades = profitPayload && profitPayload.transactions ? profitPayload.transactions : [];
           
@@ -86,7 +90,7 @@ export const SocketProvider = ({ children }) => {
             setRiskReward("1 : 0");
             setTotalTrades("0");
             setGrowthPercentage(`0.00 ${currency}`);
-            setDisciplineAssessment("Stable allocation profile. Waiting for telemetry execution...");
+            setDisciplineAssessment("Stable allocation profile. Awaiting cloud transaction tracking execution...");
             setEquityCurve([]);
             return;
           }
@@ -132,7 +136,7 @@ export const SocketProvider = ({ children }) => {
           if (parseFloat(computedWinRate) >= 55 && (avgWin / avgLoss) >= 1.5) {
             setDisciplineAssessment("Strong rule-based adherence and excellent drawdown control.");
           } else {
-            setDisciplineAssessment("Stable allocation profile. Risk controls operating inside standard parameters.");
+            setDisciplineAssessment("Stable allocation profile. Risk controls operating inside baseline setup parameters.");
           }
         }
       });

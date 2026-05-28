@@ -1,10 +1,10 @@
 let socket = null;
 
 /**
- * Establishes a highly resilient WebSocket connection to Deriv.
- * Cleans data stream packages to map perfectly to React context states.
- * @param {string} apiToken - Your active verified Deriv API token.
- * @param {function} onMessage - Callback handler for state distribution.
+ * Establishes a WebSocket connection to Deriv.
+ * Normalizes incoming network payload packets uniformly for state context injection.
+ * @param {string} apiToken - Your clean verified Deriv token.
+ * @param {function} onMessage - Callback dispatcher routing straight to React state.
  */
 export const connectDerivSocket = (apiToken, onMessage) => {
   if (socket) {
@@ -14,18 +14,14 @@ export const connectDerivSocket = (apiToken, onMessage) => {
   }
 
   const TARGET_APP_ID = "16929"; 
-
   socket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${TARGET_APP_ID}`);
 
   socket.onopen = () => {
     console.log(`📡 Connected via Channel [${TARGET_APP_ID}]. Sending sanitized token...`);
-    
     const cleanToken = apiToken.replace(/['"`\s]+/g, '').trim();
-    const authPayload = { authorize: cleanToken };
-    
-    socket.send(JSON.stringify(authPayload));
+    socket.send(JSON.stringify({ authorize: cleanToken }));
 
-    // Initialize immediate market volatility tickers
+    // Initialize market ticks stream
     ["R_100", "R_75", "R_50"].forEach((symbol) => {
       socket.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
     });
@@ -35,43 +31,28 @@ export const connectDerivSocket = (apiToken, onMessage) => {
     try {
       const data = JSON.parse(event.data);
 
-      // Handle server error responses globally without forcing a hard socket teardown
+      // Handle server error responses cleanly
       if (data.error) {
-        console.warn(`⚠️ Deriv API Gateway Warning [${data.msg_type}]:`, data.error.message);
-        
+        console.warn(`⚠️ Deriv Engine Gateway Warning [${data.msg_type}]:`, data.error.message);
         if (data.msg_type === "authorize") {
-          console.error("❌ Critical Authentication Failure.");
           disconnectDerivSocket();
-          onMessage(data);
-          return;
         }
-        
-        // Forward the error packet down so the context layer can disable analytics grids gracefully
         onMessage(data);
         return;
       }
 
-      // 1. Handle Successful Handshake Response
+      // Handle initial successful validation state parameters
       if (data.msg_type === "authorize") {
-        console.log("✅ Identity verified! Triggering real-time account data subscriptions...");
-
-        // Fire account balances subscription stream
+        console.log("✅ Identity verified! Commencing real-time stream subscriptions...");
         socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-        
-        // Fire historical profit ledger parameters safely
         socket.send(JSON.stringify({ profit_table: 1, limit: 100 }));
       }
 
-      // 2. Direct normalization fallback layer for sub-components
-      if (data.balance) data.msg_type = "balance";
-      if (data.profit_table) data.msg_type = "profit";
-      if (data.tick) data.msg_type = "tick";
-
-      // Forward directly to global states
+      // Forward completely untouched object packages straight to our context handler engine
       onMessage(data);
 
     } catch (err) {
-      console.error("❌ Message parsing extraction error:", err);
+      console.error("❌ Message extraction stream parser error:", err);
     }
   };
 
