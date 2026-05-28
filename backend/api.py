@@ -344,3 +344,18 @@ def analytics(db: Session = Depends(get_db)):
         "total_profit": round(total_profit, 2),
         "chart_data": chart_data
     }
+    # =========================================================
+# 👑 DEV UTILITY: TOGGLE MONETIZATION PAYWALL
+# =========================================================
+@app.post("/dev/upgrade-user")
+def upgrade_user_tier(email: str, tier: str = "AUTOMATED_EXECUTION", db: Session = Depends(get_db)):
+    """
+     Dev endpoint to manually toggle between 'SIGNALS_ONLY' and 'AUTOMATED_EXECUTION'
+    """
+    user = db.query(User).filter(User.email == email.strip()).first()
+    if not user:
+        raise HTTPException(status_code=442, detail="User not found")
+        
+    user.subscription_tier = tier
+    db.commit()
+    return {"message": f"User {email} successfully set to {tier} tier!"}

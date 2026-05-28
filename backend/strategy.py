@@ -57,12 +57,8 @@ class HardProductionEngine:
         self.last_candle_time = self._load_state()
         self.is_active = True
 
-        # ✅ FIXED BYPASS GUARD: Uses getattr() to safely fall back to SIGNALS_ONLY 
-        # if the user column doesn't exist in the database yet, preventing the framework crash!
-        if broker_account.user:
-            self.subscription_tier = getattr(broker_account.user, "subscription_tier", "SIGNALS_ONLY")
-        else:
-            self.subscription_tier = "SIGNALS_ONLY"
+        # Extract user monetization access tier from db model wrapper through relation path safely
+        self.subscription_tier = broker_account.user.subscription_tier if broker_account.user else "SIGNALS_ONLY"
 
         self.broker = DerivEngine(
             api_token=broker_account.api_token,
@@ -217,7 +213,7 @@ def start_strategy():
         try:
             bot = HardProductionEngine(broker_account=account)
             bots.append(bot)
-            print(f"✅ Active engine runtime mapped for account {account.id} [{bot.subscription_tier}]")
+            print(f"Active engine runtime mapped for account {account.id} [{bot.subscription_tier}]")
         except Exception as e:
             print(f"❌ Bot framework compilation failed: {e}")
 
@@ -247,7 +243,7 @@ def start_strategy():
                     if signal:
                         bot.execute_trade(pair, signal)
 
-            time.slice_delay = 15
+            # ✅ FIXED: Restored clean standard Python thread delay tracking parameters
             time.sleep(15)
 
         except Exception as e:
