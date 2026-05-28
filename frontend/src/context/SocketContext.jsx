@@ -24,11 +24,6 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     const rawToken = localStorage.getItem("deriv_api_token") || localStorage.getItem("goldbot_token");
 
-    console.log("=== 🔍 RUNTIME TOKEN DIAGNOSTIC ===");
-    console.log("1. Raw Token Type:", typeof rawToken);
-    console.log("2. Literal Value Read:", `[${rawToken}]`);
-    console.log("==================================");
-
     if (!rawToken || rawToken === "undefined" || rawToken === "null") {
       setBalance("Configure Token");
       return;
@@ -47,9 +42,16 @@ export const SocketProvider = ({ children }) => {
       connectDerivSocket(cleanToken, (data) => {
         if (!data) return;
 
-        // 1. CATCH ERRORS SAFELY
+        // 1. CATCH SCOPE AND ERROR OBJECTS INGESTION
         if (data.error) {
-          console.error("❌ Context Level Error:", data.error.message);
+          if (data.msg_type === "profit_table" || data.msg_type === "profit") {
+            setWinRate("Demo Limit");
+            setRiskReward("Demo Limit");
+            setTotalTrades("0");
+            setGrowthPercentage(`0.00 ${currency}`);
+            setDisciplineAssessment("Historical tracking skipped. Analytics ledger calls are restricted on demo keys.");
+            setEquityCurve([]);
+          }
           if (data.msg_type === "authorize") {
             setBalance("Auth Error");
             socketInitialized.current = false;
@@ -74,11 +76,9 @@ export const SocketProvider = ({ children }) => {
           }));
         }
 
-        // 4. BULLETPROOF HISTORICAL ANALYSIS LAYER (Fixes the `.reverse()` crash)
+        // 4. HISTORICAL PERFORMANCE ANALYSIS LAYER
         if (data.msg_type === "profit" || data.profit_table) {
           const profitPayload = data.profit || data.profit_table;
-          
-          // Fallback to empty array to ensure it never evaluates to null or undefined
           const trades = profitPayload && profitPayload.transactions ? profitPayload.transactions : [];
           
           if (!Array.isArray(trades) || trades.length === 0) {
@@ -86,7 +86,7 @@ export const SocketProvider = ({ children }) => {
             setRiskReward("1 : 0");
             setTotalTrades("0");
             setGrowthPercentage(`0.00 ${currency}`);
-            setDisciplineAssessment("Stable allocation profile. Waiting for historical analytics telemetry...");
+            setDisciplineAssessment("Stable allocation profile. Waiting for telemetry execution...");
             setEquityCurve([]);
             return;
           }
@@ -98,7 +98,6 @@ export const SocketProvider = ({ children }) => {
           let lossCount = 0;
           let runningEquity = 0;
 
-          // ✅ SAFE: trades is guaranteed to be an array, making [...trades] completely crash-proof
           const historicalPoints = [...trades].reverse().map((tx, index) => {
             const profitValue = parseFloat(tx.profit) || 0;
             runningEquity += profitValue;
@@ -131,14 +130,14 @@ export const SocketProvider = ({ children }) => {
           setGrowthPercentage(`${finalGrowth} ${profitPayload.currency || "USD"}`);
 
           if (parseFloat(computedWinRate) >= 55 && (avgWin / avgLoss) >= 1.5) {
-            setDisciplineAssessment("Strong rule-based adherence and excellent drawdown control. Execution parameters indicate institutional-grade risk mitigation, high capital pool preservation, and consistent profit extraction efficiency.");
+            setDisciplineAssessment("Strong rule-based adherence and excellent drawdown control.");
           } else {
-            setDisciplineAssessment("Stable allocation profile. Risk controls are operating inside standard baseline parameters. Strategy avoids random over-exposure spikes and follows structured trading plan steps.");
+            setDisciplineAssessment("Stable allocation profile. Risk controls operating inside standard parameters.");
           }
         }
       });
     }
-  }, []);
+  }, [currency]);
 
   return (
     <SocketContext.Provider value={{ 
