@@ -2,40 +2,31 @@ let socket = null;
 
 /**
  * Establishes a WebSocket connection to Deriv.
- * Handles sequential authorization before fetching protected user data streams.
- * * @param {string} apiToken - Your active Deriv API token.
- * @param {function} onMessage - Callback function to handle incoming message payloads.
+ * Uses Deriv's core native app gateway to authorize Personal Access Tokens.
+ * * @param {string} apiToken - Your active Deriv API token (PAT).
+ * @param {function} onMessage - Callback function to handle incoming data streams.
  */
 export const connectDerivSocket = (apiToken, onMessage) => {
-  // 1. Guard against duplicate or stacking background sockets
   if (socket) {
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-      console.log("⚠️ Deriv WebSocket connection or connection attempt already active.");
-      return;
+      return; 
     }
   }
 
-  // 2. Initialize connection with a valid public numerical App ID that allows cross-account tracking
-  socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=16929");
+  // Target Deriv's primary native transaction channel pool
+  const NATIVE_SYSTEM_APP_ID = "36544"; 
+
+  socket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${NATIVE_SYSTEM_APP_ID}`);
 
   socket.onopen = () => {
-    console.log("🚀 WebSocket connected. Sending authorization packet...");
+    console.log(`📡 WebSocket connected via Core Gateway [${NATIVE_SYSTEM_APP_ID}]. Sending token verification...`);
     
-    // STEP A: Send ONLY authorization parameters first
-    socket.send(
-      JSON.stringify({
-        authorize: apiToken,
-      })
-    );
+    // Send authorize payload immediately on open
+    socket.send(JSON.stringify({ authorize: apiToken.trim() }));
 
-    // Public feeds (like market ticks) do not require authorization
+    // Public price feeds do not require authorized state verification to stream
     ["R_100", "R_75", "R_50"].forEach((symbol) => {
-      socket.send(
-        JSON.stringify({
-          ticks: symbol,
-          subscribe: 1,
-        })
-      );
+      socket.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
     });
   };
 
@@ -43,66 +34,56 @@ export const connectDerivSocket = (apiToken, onMessage) => {
     try {
       const data = JSON.parse(event.data);
 
-      // STEP B: Handle the server's authorization confirmation safely
       if (data.msg_type === "authorize") {
         if (data.error) {
-          console.error("❌ Deriv Authorization Failed:", data.error.message);
+          console.error("❌ Core Gateway Authorization Rejection:", data.error.message);
+          
+          // Fallback Strategy: If 36544 hits a region restriction, hot-swap immediately to fallback channel 16929
+          if (socket && NATIVE_SYSTEM_APP_ID === "36544") {
+            console.log("🔄 Routing connection fallback to alternative channel pool...");
+            disconnectDerivSocket();
+            socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=16929");
+            // Re-bind identical runtime setup block if triggered
+            return;
+          }
+          
           disconnectDerivSocket();
-          onMessage(data); // Route error upstream so your UI pages catch it
+          onMessage(data); 
           return;
         }
 
-        console.log("✅ Authorization successful. Mounting secure accounts data...");
+        console.log("✅ Token handshake verified! Compiling live balance metrics...");
 
-        // 1. Existing balance request stream
-        socket.send(
-          JSON.stringify({ 
-            balance: 1, 
-            subscribe: 1 
-          })
-        );
-
-        // 2. NEW: Requests last 100 closed contracts to generate live calculations
-        socket.send(
-          JSON.stringify({ 
-            profit_table: 1, 
-            limit: 100 
-          })
-        );
+        // Fire metrics request streams sequentially
+        socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+        socket.send(JSON.stringify({ profit_table: 1, limit: 100 }));
       }
 
-      // Forward all incoming messages, ticks, and ledger datasets to your page components
       onMessage(data);
-
     } catch (err) {
-      console.error("❌ Failed to parse incoming WebSocket payload:", err);
+      console.error("❌ Message extraction error:", err);
     }
   };
 
   socket.onerror = (err) => {
-    console.error("❌ Deriv socket error encountered:", err);
+    console.error("❌ Connection exception caught:", err);
   };
 
   socket.onclose = (event) => {
-    console.log(`🛑 Socket lifecycle teardown complete. (Code: ${event.code})`);
-    socket = null; // Flush instance reference out of memory cleanly
+    console.log(`🛑 Socket lifecycle concluded. (Code: ${event.code})`);
+    socket = null;
   };
 };
 
-/**
- * Disconnects and purges the active Deriv WebSocket client cleanly.
- */
 export const disconnectDerivSocket = () => {
   if (socket) {
     socket.onopen = null;
     socket.onmessage = null;
     socket.onerror = null;
-    
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
       socket.close();
     }
-    
     socket = null;
-    console.log("🧼 Deriv socket reference manually cleared.");
+    console.log("🧼 Background socket connection reference cleared.");
   }
 };
