@@ -42,14 +42,14 @@ export const SocketProvider = ({ children }) => {
       connectDerivSocket(cleanToken, (data) => {
         if (!data) return;
 
-        // 1. CATCH PERMISSION OR SCOPE ERRORS
+        // 1. CATCH DISCONNECTS OR PERMISSION ERROR CODES
         if (data.error) {
           if (data.msg_type === "profit_table" || data.msg_type === "profit") {
             setWinRate("Demo Limit");
             setRiskReward("Demo Limit");
             setTotalTrades("0");
-            setGrowthPercentage(`0.00 ${currency}`);
-            setDisciplineAssessment("Analytics ledger tracking skipped on Demo Tokens.");
+            setGrowthPercentage("0.00 USD");
+            setDisciplineAssessment("Analytics tracking skipped on Demo Tokens.");
             setEquityCurve([]);
           }
           if (data.msg_type === "authorize") {
@@ -59,17 +59,16 @@ export const SocketProvider = ({ children }) => {
           return;
         }
 
-        // 2. LIVE BALANCE PACKET EXTRACTOR (Looks directly for balance values inside packet objects)
+        // 2. PARSE STREAMING BALANCE
         if (data.balance && data.balance.balance !== undefined) {
           const actualBalance = parseFloat(data.balance.balance);
           const actualCurrency = data.balance.currency || "USD";
           
-          console.log(`🎯 State Updated Live: ${actualCurrency} ${actualBalance}`);
           setBalance(actualBalance.toFixed(2));
           setCurrency(actualCurrency);
         }
 
-        // 3. REAL-TIME TICK DATA FEEDS
+        // 3. PARSE REAL-TIME TICK PRICE CHANGES
         if (data.tick && data.tick.symbol && data.tick.quote !== undefined) {
           const symbol = data.tick.symbol;
           const quote = data.tick.quote;
@@ -80,7 +79,7 @@ export const SocketProvider = ({ children }) => {
           }));
         }
 
-        // 4. HISTORICAL TRANSACTION PERFORMANCE ANALYSIS
+        // 4. PARSE HISTORICAL DATA LEDGER
         if (data.msg_type === "profit_table" || data.msg_type === "profit" || data.profit_table) {
           const profitPayload = data.profit || data.profit_table;
           const trades = profitPayload && profitPayload.transactions ? profitPayload.transactions : [];
@@ -89,7 +88,7 @@ export const SocketProvider = ({ children }) => {
             setWinRate("0%");
             setRiskReward("1 : 0");
             setTotalTrades("0");
-            setGrowthPercentage(`0.00 ${currency}`);
+            setGrowthPercentage("0.00 USD");
             setDisciplineAssessment("Stable allocation profile. Awaiting cloud transaction execution...");
             setEquityCurve([]);
             return;
@@ -132,16 +131,13 @@ export const SocketProvider = ({ children }) => {
           setRiskReward(computedRR);
           setEquityCurve(historicalPoints);
           setGrowthPercentage(`${finalGrowth} ${profitPayload.currency || "USD"}`);
-
-          if (parseFloat(computedWinRate) >= 55 && (avgWin / avgLoss) >= 1.5) {
-            setDisciplineAssessment("Strong rule-based adherence and excellent drawdown control.");
-          } else {
-            setDisciplineAssessment("Stable allocation profile. Risk controls operating inside standard parameters.");
-          }
+          setDisciplineAssessment("Stable allocation profile. Risk controls operating inside baseline setup parameters.");
         }
       });
     }
-  }, [currency]);
+
+    // Completely empty dependency array ensures the socket runs continuously inside a persistent background thread
+  }, []);
 
   return (
     <SocketContext.Provider value={{ 
