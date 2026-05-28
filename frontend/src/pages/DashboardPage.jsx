@@ -40,7 +40,8 @@ function DashboardPage() {
       setBotRunning(true);
     } catch (err) {
       setError(err.message);
-    } finaly {
+    } // ✅ FIXED: Corrected spelling to 'finally'
+    finally {
       setLoading(false);
     }
   };
@@ -63,7 +64,8 @@ function DashboardPage() {
       setBotRunning(false);
     } catch (err) {
       setError(err.message);
-    } finaly {
+    } // ✅ FIXED: Corrected spelling to 'finally'
+    finally {
       setLoading(false);
     }
   };
@@ -113,7 +115,6 @@ function DashboardPage() {
             title="Account Balance"
             value={balance === "Loading..." ? balance : `${currency} ${balance}`}
           />
-          {/* ✅ RENDER TARGET FIX: Consuming Forex/Gold properties directly from stream arrays */}
           <StatCard icon={<LineChart size={24} />} title="Gold Spot (XAU/USD)" value={marketPrices?.frxXAUUSD || "--"} />
           <StatCard icon={<LineChart size={24} />} title="Euro / US Dollar" value={marketPrices?.frxEURUSD || "--"} />
           <StatCard icon={<LineChart size={24} />} title="Pound / US Dollar" value={marketPrices?.frxGBPUSD || "--"} />
@@ -167,9 +168,10 @@ function DashboardPage() {
             <h2 style={cardTitle}>Live Activity</h2>
             <div style={activityList}>
               <ActivityItem color="#10b981" text="AI macro liquidity scan completed" />
-              <ActivityItem color="#fbbf24" text="XAU/USD spread imbalance flagged" />
-              <ActivityItem color="#38bdf8" text="Cloud synchronization stable" />
-              <ActivityItem color="#ef4444" text="Awaiting target trade confirmation" />
+              {/* ✅ FIXED: Tailored live activities to display your actual asset pairs */}
+              <ActivityItem color="#fbbf24" text="XAU/USD order book order imbalances analyzed" />
+              <ActivityItem color="#38bdf8" text="Cloud order routing bridges stable" />
+              <ActivityItem color="#ef4444" text="Awaiting premium Forex trade entry verification" />
             </div>
           </div>
         </div>
