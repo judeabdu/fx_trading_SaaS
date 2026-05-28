@@ -22,7 +22,6 @@ export const SocketProvider = ({ children }) => {
   const socketInitialized = useRef(false);
 
   useEffect(() => {
-    // 1. Get raw token value from local storage keys
     const rawToken = localStorage.getItem("deriv_api_token") || localStorage.getItem("goldbot_token");
 
     if (!rawToken || rawToken === "undefined" || rawToken === "null") {
@@ -30,15 +29,14 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    // 🔥 CRITICAL DATA CLEANING LAYER:
-    // Strips away literal single quotes, double quotes, backticks, and whitespace characters
     const cleanToken = rawToken.replace(/['"`\s]+/g, '').trim();
 
     if (cleanToken.length < 5) {
-      setBalance("Invalid Key Structure");
+      setBalance("Invalid Key");
       return;
     }
 
+    // Connect if not already initialized
     if (!socketInitialized.current) {
       socketInitialized.current = true;
 
@@ -50,11 +48,13 @@ export const SocketProvider = ({ children }) => {
           return;
         }
 
+        // UPDATE LIVE BALANCE
         if (data.msg_type === "balance" && data.balance) {
           setBalance(Number(data.balance.balance).toFixed(2));
           setCurrency(data.balance.currency);
         }
 
+        // UPDATE LIVE TICK PRICES
         if (data.msg_type === "tick" && data.tick) {
           setMarketPrices((prev) => ({
             ...prev,
@@ -62,6 +62,7 @@ export const SocketProvider = ({ children }) => {
           }));
         }
 
+        // PROCESS PERFORMANCE HISTORIES
         if (data.msg_type === "profit" && data.profit) {
           const trades = data.profit.transactions || [];
           
@@ -121,10 +122,8 @@ export const SocketProvider = ({ children }) => {
       });
     }
 
-    return () => {
-      disconnectDerivSocket();
-      socketInitialized.current = false;
-    };
+    // 🛑 REMOVED THE ACCIDENTAL DISCONNECT TEARDOWN ON COMPONENT UNMOUNT
+    // This allows the socket session stream to stay completely alive across page switches
   }, []);
 
   return (
