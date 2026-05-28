@@ -1,10 +1,10 @@
 let socket = null;
 
 /**
- * Establishes a WebSocket connection to Deriv.
- * Normalizes incoming network payload packets uniformly for state context injection.
- * @param {string} apiToken - Your clean verified Deriv token.
- * @param {function} onMessage - Callback dispatcher routing straight to React state.
+ * Establishes a highly resilient WebSocket connection to Deriv.
+ * Passes clean raw data streams directly to the global context layer.
+ * @param {string} apiToken - Your active verified Deriv API token.
+ * @param {function} onMessage - Callback handler for state distribution.
  */
 export const connectDerivSocket = (apiToken, onMessage) => {
   if (socket) {
@@ -18,10 +18,13 @@ export const connectDerivSocket = (apiToken, onMessage) => {
 
   socket.onopen = () => {
     console.log(`📡 Connected via Channel [${TARGET_APP_ID}]. Sending sanitized token...`);
+    
     const cleanToken = apiToken.replace(/['"`\s]+/g, '').trim();
-    socket.send(JSON.stringify({ authorize: cleanToken }));
+    const authPayload = { authorize: cleanToken };
+    
+    socket.send(JSON.stringify(authPayload));
 
-    // Initialize market ticks stream
+    // Initialize market volatility tickers
     ["R_100", "R_75", "R_50"].forEach((symbol) => {
       socket.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
     });
@@ -41,18 +44,18 @@ export const connectDerivSocket = (apiToken, onMessage) => {
         return;
       }
 
-      // Handle initial successful validation state parameters
+      // Handle successful validation state parameters
       if (data.msg_type === "authorize") {
-        console.log("✅ Identity verified! Commencing real-time stream subscriptions...");
+        console.log("✅ Identity verified! Triggering real-time account data subscriptions...");
         socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
         socket.send(JSON.stringify({ profit_table: 1, limit: 100 }));
       }
 
-      // Forward completely untouched object packages straight to our context handler engine
+      // Pass the raw data object down untouched
       onMessage(data);
 
     } catch (err) {
-      console.error("❌ Message extraction stream parser error:", err);
+      console.error("❌ Message parsing extraction error:", err);
     }
   };
 
