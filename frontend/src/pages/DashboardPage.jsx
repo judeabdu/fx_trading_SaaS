@@ -1,344 +1,193 @@
-import React, {
-  useEffect,
-  useState
-} from "react";
-
+import React, { useEffect, useState, useRef } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import {
-  connectDerivSocket,
-  disconnectDerivSocket
-} from "../services/derivSocket";
-
-import {
-  Activity,
-  Bot,
-  Cpu,
-  ShieldCheck,
-  Wifi,
-  LineChart
-} from "lucide-react";
+import { connectDerivSocket, disconnectDerivSocket } from "../services/derivSocket";
+import { Activity, Bot, Cpu, ShieldCheck, Wifi, LineChart } from "lucide-react";
 
 function DashboardPage() {
-
   const [botRunning, setBotRunning] = useState(false);
-
   const [loading, setLoading] = useState(false);
-
   const [message, setMessage] = useState("");
-
   const [error, setError] = useState("");
   const [balance, setBalance] = useState(0);
+  const [currency, setCurrency] = useState("USD");
+  const [marketPrices, setMarketPrices] = useState({
+    R_100: "--",
+    R_75: "--",
+    R_50: "--",
+  });
 
-const [currency, setCurrency] = useState("USD");
-
-const [marketPrices, setMarketPrices] = useState({
-  R_100: "--",
-  R_75: "--",
-  R_50: "--"
-});
+  // Track socket initialization state to avoid double activation loops during re-renders
+  const socketInitialized = useRef(false);
 
   const fetchBotStatus = async () => {
-
     try {
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/status`
-      );
-
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/status`);
       const data = await response.json();
-
       setBotRunning(data.running);
-
     } catch (err) {
-
-      console.error(err);
+      console.error("Failed to fetch bot status:", err);
     }
   };
 
   const startBot = async () => {
-
     setLoading(true);
-
     setMessage("");
-
     setError("");
-
     try {
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/start-bot`,
-        {
-          method: "POST"
-        }
-      );
-
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/start-bot`, {
+        method: "POST",
+      });
       const data = await response.json();
 
       if (!response.ok) {
-
-        throw new Error(
-          data.detail || "Failed to start bot"
-        );
+        throw new Error(data.detail || "Failed to start bot");
       }
 
       setMessage(data.message);
-
       setBotRunning(true);
-
     } catch (err) {
-
       setError(err.message);
-
     } finally {
-
       setLoading(false);
     }
   };
 
   const stopBot = async () => {
-
     setLoading(true);
-
     setMessage("");
-
     setError("");
-
     try {
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/stop-bot`,
-        {
-          method: "POST"
-        }
-      );
-
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/stop-bot`, {
+        method: "POST",
+      });
       const data = await response.json();
 
       if (!response.ok) {
-
-        throw new Error(
-          data.detail || "Failed to stop bot"
-        );
+        throw new Error(data.detail || "Failed to stop bot");
       }
 
       setMessage(data.message);
-
       setBotRunning(false);
-
     } catch (err) {
-
       setError(err.message);
-
     } finally {
-
       setLoading(false);
     }
   };
 
   useEffect(() => {
-
+    // 1. Core initialization pull
     fetchBotStatus();
-    const token = localStorage.getItem(
-  "deriv_api_token"
-);
 
-if (token) {
+    const token = localStorage.getItem("deriv_api_token");
 
-  connectDerivSocket(
-    token,
-    (data) => {
+    // 2. Establish the WebSocket only once using the mutable ref flag
+    if (token && !socketInitialized.current) {
+      socketInitialized.current = true;
+      
+      connectDerivSocket(token, (data) => {
+        // Clear explicit downstream auth failures out of the console onto the dashboard UI
+        if (data.msg_type === "authorize" && data.error) {
+          setError(`Broker Auth Error: ${data.error.message}`);
+          return;
+        }
 
-      // ACCOUNT BALANCE
+        // ACCOUNT BALANCE
+        if (data.msg_type === "balance" && data.balance) {
+          setBalance(data.balance.balance);
+          setCurrency(data.balance.currency);
+        }
 
-      if (data.msg_type === "balance") {
-
-        setBalance(data.balance.balance);
-
-        setCurrency(
-          data.balance.currency
-        );
-      }
-
-      // LIVE TICKS
-
-      if (data.msg_type === "tick") {
-
-        setMarketPrices((prev) => ({
-          ...prev,
-          [data.tick.symbol]:
-            data.tick.quote
-        }));
-      }
+        // LIVE TICKS
+        if (data.msg_type === "tick" && data.tick) {
+          setMarketPrices((prev) => ({
+            ...prev,
+            [data.tick.symbol]: data.tick.quote,
+          }));
+        }
+      });
     }
-  );
-}
 
-    const interval = setInterval(
-      fetchBotStatus,
-      3000
-    );
+    // 3. Keep polling the internal engine status isolated without hitting WebSockets
+    const interval = setInterval(fetchBotStatus, 3000);
 
+    // 4. Teardown completely when navigating away
     return () => {
-
-  clearInterval(interval);
-
-  disconnectDerivSocket();
-};
-
+      clearInterval(interval);
+      disconnectDerivSocket();
+      socketInitialized.current = false;
+    };
   }, []);
 
   return (
-
     <DashboardLayout>
-
       <div style={backgroundGlow}></div>
-
       <div style={containerStyle}>
-
+        
         {/* HEADER */}
-
         <div style={topSection}>
-
           <div>
-
-            <h1 style={titleStyle}>
-              AI Trading Command Center
-            </h1>
-
-            <p style={subStyle}>
-              Institutional cloud execution engine
-            </p>
-
+            <h1 style={titleStyle}>AI Trading Command Center</h1>
+            <p style={subStyle}>Institutional cloud execution engine</p>
           </div>
 
-          <div style={{
-            ...statusBadge,
-            background: botRunning
-              ? "rgba(16,185,129,0.15)"
-              : "rgba(239,68,68,0.15)",
-
-            color: botRunning
-              ? "#10b981"
-              : "#ef4444"
-          }}>
-
-            <div style={{
-              ...pulseDot,
-              background: botRunning
-                ? "#10b981"
-                : "#ef4444"
-            }} />
-
-            {
-              botRunning
-                ? "BOT ACTIVE"
-                : "BOT OFFLINE"
-            }
-
+          <div
+            style={{
+              ...statusBadge,
+              background: botRunning ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+              color: botRunning ? "#10b981" : "#ef4444",
+            }}
+          >
+            <div
+              style={{
+                ...pulseDot,
+                background: botRunning ? "#10b981" : "#ef4444",
+              }}
+            />
+            {botRunning ? "BOT ACTIVE" : "BOT OFFLINE"}
           </div>
-
         </div>
 
         {/* STATS */}
-
         <div style={statsGrid}>
           <StatCard
-  icon={<Activity size={24} />}
-  title="Account Balance"
-  value={`${currency} ${balance}`}
-/>
-
-<StatCard
-  icon={<LineChart size={24} />}
-  title="R_100"
-  value={marketPrices.R_100}
-/>
-
-<StatCard
-  icon={<LineChart size={24} />}
-  title="R_75"
-  value={marketPrices.R_75}
-/>
-
-<StatCard
-  icon={<LineChart size={24} />}
-  title="R_50"
-  value={marketPrices.R_50}
-/>
-
+            icon={<Activity size={24} />}
+            title="Account Balance"
+            value={`${currency} ${Number(balance).toFixed(2)}`}
+          />
+          <StatCard icon={<LineChart size={24} />} title="R_100 Market" value={marketPrices.R_100} />
+          <StatCard icon={<LineChart size={24} />} title="R_75 Market" value={marketPrices.R_75} />
+          <StatCard icon={<LineChart size={24} />} title="R_50 Market" value={marketPrices.R_50} />
           <StatCard
             icon={<Bot size={24} />}
             title="AI Engine"
             value={botRunning ? "ONLINE" : "OFFLINE"}
           />
-
-          <StatCard
-            icon={<Cpu size={24} />}
-            title="Strategy Confidence"
-            value="92%"
-          />
-
-          <StatCard
-            icon={<ShieldCheck size={24} />}
-            title="Risk Management"
-            value="ACTIVE"
-          />
-
-          <StatCard
-            icon={<Wifi size={24} />}
-            title="Server Latency"
-            value="18ms"
-          />
-
+          <StatCard icon={<Cpu size={24} />} title="Strategy Confidence" value="92%" />
+          <StatCard icon={<ShieldCheck size={24} />} title="Risk Management" value="ACTIVE" />
+          <StatCard icon={<Wifi size={24} />} title="Server Latency" value="18ms" />
         </div>
 
         {/* MAIN GRID */}
-
         <div style={mainGrid}>
-
           {/* BOT CONTROL */}
-
           <div style={controlCard}>
+            <h2 style={cardTitle}>Automated Trading Engine</h2>
+            <p style={cardDesc}>Control your cloud-native AI Deriv execution system.</p>
 
-            <h2 style={cardTitle}>
-              Automated Trading Engine
-            </h2>
-
-            <p style={cardDesc}>
-              Control your cloud-native
-              AI Deriv execution system.
-            </p>
-
-            {message && (
-              <div style={successBox}>
-                {message}
-              </div>
-            )}
-
-            {error && (
-              <div style={errorBox}>
-                {error}
-              </div>
-            )}
+            {message && <div style={successBox}>{message}</div>}
+            {error && <div style={errorBox}>{error}</div>}
 
             <div style={buttonRow}>
-
               <button
                 onClick={startBot}
                 disabled={loading || botRunning}
                 style={{
                   ...startButton,
-                  opacity:
-                    loading || botRunning
-                      ? 0.6
-                      : 1
+                  opacity: loading || botRunning ? 0.6 : 1,
                 }}
               >
-                {
-                  loading
-                    ? "Processing..."
-                    : "Start Bot"
-                }
+                {loading ? "Processing..." : "Start Bot"}
               </button>
 
               <button
@@ -346,296 +195,73 @@ if (token) {
                 disabled={loading || !botRunning}
                 style={{
                   ...stopButton,
-                  opacity:
-                    loading || !botRunning
-                      ? 0.6
-                      : 1
+                  opacity: loading || !botRunning ? 0.6 : 1,
                 }}
               >
                 Stop Bot
               </button>
-
             </div>
-
           </div>
 
           {/* LIVE ACTIVITY */}
-
           <div style={activityCard}>
-
-            <h2 style={cardTitle}>
-              Live Activity
-            </h2>
-
+            <h2 style={cardTitle}>Live Activity</h2>
             <div style={activityList}>
-
-              <ActivityItem
-                color="#10b981"
-                text="AI liquidity scan completed"
-              />
-
-              <ActivityItem
-                color="#fbbf24"
-                text="R_100 volatility spike detected"
-              />
-
-              <ActivityItem
-                color="#38bdf8"
-                text="Cloud synchronization stable"
-              />
-
-              <ActivityItem
-                color="#ef4444"
-                text="Awaiting trade confirmation"
-              />
-
+              <ActivityItem color="#10b981" text="AI liquidity scan completed" />
+              <ActivityItem color="#fbbf24" text="R_100 volatility spike detected" />
+              <ActivityItem color="#38bdf8" text="Cloud synchronization stable" />
+              <ActivityItem color="#ef4444" text="Awaiting trade confirmation" />
             </div>
-
           </div>
-
         </div>
-
       </div>
-
     </DashboardLayout>
   );
 }
 
-const StatCard = ({
-  icon,
-  title,
-  value
-}) => (
-
+// Subcomponents
+const StatCard = ({ icon, title, value }) => (
   <div style={statCard}>
-
-    <div style={statIcon}>
-      {icon}
-    </div>
-
+    <div style={statIcon}>{icon}</div>
     <div>
-
-      <div style={statTitle}>
-        {title}
-      </div>
-
-      <div style={statValue}>
-        {value}
-      </div>
-
+      <div style={statTitle}>{title}</div>
+      <div style={statValue}>{value}</div>
     </div>
-
   </div>
 );
 
-const ActivityItem = ({
-  color,
-  text
-}) => (
-
+const ActivityItem = ({ color, text }) => (
   <div style={activityItem}>
-
-    <div style={{
-      ...activityDot,
-      background: color
-    }} />
-
+    <div style={{ ...activityDot, background: color }} />
     {text}
-
   </div>
 );
 
-const containerStyle = {
-  color: "white",
-  position: "relative",
-  zIndex: 2
-};
-
-const backgroundGlow = {
-  position: "fixed",
-  top: "-200px",
-  right: "-200px",
-  width: "500px",
-  height: "500px",
-  background: "rgba(251,191,36,0.08)",
-  filter: "blur(120px)",
-  borderRadius: "50%",
-  zIndex: 0
-};
-
-const topSection = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: "30px",
-  flexWrap: "wrap",
-  gap: "20px"
-};
-
-const titleStyle = {
-  fontSize: "42px",
-  marginBottom: "10px"
-};
-
-const subStyle = {
-  color: "#94a3b8",
-  fontSize: "16px"
-};
-
-const statusBadge = {
-  display: "flex",
-  alignItems: "center",
-  gap: "10px",
-  padding: "14px 22px",
-  borderRadius: "30px",
-  fontWeight: "700"
-};
-
-const pulseDot = {
-  width: "10px",
-  height: "10px",
-  borderRadius: "50%"
-};
-
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(auto-fit,minmax(220px,1fr))",
-  gap: "20px",
-  marginBottom: "30px"
-};
-
-const statCard = {
-  background: "rgba(15,23,42,0.85)",
-  border: "1px solid #1e293b",
-  borderRadius: "20px",
-  padding: "24px",
-  display: "flex",
-  alignItems: "center",
-  gap: "18px",
-  backdropFilter: "blur(14px)"
-};
-
-const statIcon = {
-  width: "52px",
-  height: "52px",
-  borderRadius: "16px",
-  background: "rgba(251,191,36,0.1)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "#fbbf24"
-};
-
-const statTitle = {
-  color: "#94a3b8",
-  fontSize: "14px",
-  marginBottom: "6px"
-};
-
-const statValue = {
-  fontSize: "20px",
-  fontWeight: "700"
-};
-
-const mainGrid = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(auto-fit,minmax(340px,1fr))",
-  gap: "24px"
-};
-
-const controlCard = {
-  background: "rgba(15,23,42,0.9)",
-  border: "1px solid #1e293b",
-  borderRadius: "24px",
-  padding: "40px",
-  backdropFilter: "blur(18px)"
-};
-
-const activityCard = {
-  background: "rgba(15,23,42,0.9)",
-  border: "1px solid #1e293b",
-  borderRadius: "24px",
-  padding: "40px",
-  backdropFilter: "blur(18px)"
-};
-
-const cardTitle = {
-  fontSize: "30px",
-  marginBottom: "14px"
-};
-
-const cardDesc = {
-  color: "#94a3b8",
-  marginBottom: "30px",
-  lineHeight: "1.7"
-};
-
-const buttonRow = {
-  display: "flex",
-  gap: "18px",
-  flexWrap: "wrap"
-};
-
-const startButton = {
-  background: "#10b981",
-  border: "none",
-  padding: "16px 30px",
-  borderRadius: "14px",
-  color: "white",
-  fontWeight: "700",
-  cursor: "pointer",
-  fontSize: "15px"
-};
-
-const stopButton = {
-  background: "#ef4444",
-  border: "none",
-  padding: "16px 30px",
-  borderRadius: "14px",
-  color: "white",
-  fontWeight: "700",
-  cursor: "pointer",
-  fontSize: "15px"
-};
-
-const activityList = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "18px"
-};
-
-const activityItem = {
-  display: "flex",
-  alignItems: "center",
-  gap: "14px",
-  padding: "16px",
-  background: "#020617",
-  borderRadius: "14px",
-  color: "#cbd5e1"
-};
-
-const activityDot = {
-  width: "12px",
-  height: "12px",
-  borderRadius: "50%"
-};
-
-const successBox = {
-  background: "#064e3b",
-  color: "#6ee7b7",
-  padding: "14px",
-  borderRadius: "12px",
-  marginBottom: "20px"
-};
-
-const errorBox = {
-  background: "#7f1d1d",
-  color: "#fca5a5",
-  padding: "14px",
-  borderRadius: "12px",
-  marginBottom: "20px"
-};
+// Styles
+const containerStyle = { color: "white", position: "relative", zIndex: 2 };
+const backgroundGlow = { position: "fixed", top: "-200px", right: "-200px", width: "500px", height: "500px", background: "rgba(251,191,36,0.08)", filter: "blur(120px)", borderRadius: "50%", zIndex: 0 };
+const topSection = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px", flexWrap: "wrap", gap: "20px" };
+const titleStyle = { fontSize: "42px", marginBottom: "10px" };
+const subStyle = { color: "#94a3b8", fontSize: "16px" };
+const statusBadge = { display: "flex", alignItems: "center", gap: "10px", padding: "14px 22px", borderRadius: "30px", fontWeight: "700" };
+const pulseDot = { width: "10px", height: "10px", borderRadius: "50%" };
+const statsGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "20px", marginBottom: "30px" };
+const statCard = { background: "rgba(15,23,42,0.85)", border: "1px solid #1e293b", borderRadius: "20px", padding: "24px", display: "flex", alignItems: "center", gap: "18px", backdropFilter: "blur(14px)" };
+const statIcon = { width: "52px", height: "52px", borderRadius: "16px", background: "rgba(251,191,36,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fbbf24" };
+const statTitle = { color: "#94a3b8", fontSize: "14px", marginBottom: "6px" };
+const statValue = { fontSize: "20px", fontWeight: "700" };
+const mainGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: "24px" };
+const controlCard = { background: "rgba(15,23,42,0.9)", border: "1px solid #1e293b", borderRadius: "24px", padding: "40px", backdropFilter: "blur(18px)" };
+const activityCard = { background: "rgba(15,23,42,0.9)", border: "1px solid #1e293b", borderRadius: "24px", padding: "40px", backdropFilter: "blur(18px)" };
+const cardTitle = { fontSize: "30px", marginBottom: "14px" };
+const cardDesc = { color: "#94a3b8", marginBottom: "30px", lineHeight: "1.7" };
+const buttonRow = { display: "flex", gap: "18px", flexWrap: "wrap" };
+const startButton = { background: "#10b981", border: "none", padding: "16px 30px", borderRadius: "14px", color: "white", fontWeight: "700", cursor: "pointer", fontSize: "15px" };
+const stopButton = { background: "#ef4444", border: "none", padding: "16px 30px", borderRadius: "14px", color: "white", fontWeight: "700", cursor: "pointer", fontSize: "15px" };
+const activityList = { display: "flex", flexDirection: "column", gap: "18px" };
+const activityItem = { display: "flex", alignItems: "center", gap: "14px", padding: "16px", background: "#020617", borderRadius: "14px", color: "#cbd5e1" };
+const activityDot = { width: "12px", height: "12px", borderRadius: "50%" };
+const successBox = { background: "#064e3b", color: "#6ee7b7", padding: "14px", borderRadius: "12px", marginBottom: "20px" };
+const errorBox = { background: "#7f1d1d", color: "#fca5a5", padding: "14px", borderRadius: "12px", marginBottom: "20px" };
 
 export default DashboardPage;
