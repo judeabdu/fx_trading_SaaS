@@ -24,12 +24,6 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     const rawToken = localStorage.getItem("deriv_api_token") || localStorage.getItem("goldbot_token");
 
-    // Runtime trace diagnostics to catch hidden spaces or structure faults instantly
-    console.log("=== 🔍 RUNTIME TOKEN DIAGNOSTIC ===");
-    console.log("1. Raw Token Type:", typeof rawToken);
-    console.log("2. Literal Value Read:", `[${rawToken}]`);
-    console.log("==================================");
-
     if (!rawToken || rawToken === "undefined" || rawToken === "null") {
       setBalance("Configure Token");
       return;
@@ -42,37 +36,43 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    // Connect if not already initialized
     if (!socketInitialized.current) {
       socketInitialized.current = true;
 
       connectDerivSocket(cleanToken, (data) => {
-        if (data.msg_type === "authorize" && data.error) {
-          console.error("❌ Context Level Auth Failure:", data.error.message);
+        // 1. CATCH DISCONNECTS OR AUTH ERRORS IMMEDIATELY
+        if (data.error) {
+          console.error("❌ Stream Error:", data.error.message);
           setBalance("Auth Error");
-          socketInitialized.current = false;
           return;
         }
 
-        // UPDATE LIVE BALANCE
-        if (data.msg_type === "balance" && data.balance) {
-          setBalance(Number(data.balance.balance).toFixed(2));
-          setCurrency(data.balance.currency);
+        // 2. UNIVERSAL BALANCE PARSER (Handles Live, Demo, and Sub-account arrays)
+        const balanceData = data.balance || data.bch;
+        if (balanceData) {
+          const currentBalance = balanceData.balance !== undefined ? balanceData.balance : balanceData;
+          const currentCurrency = balanceData.currency || "USD";
+          
+          setBalance(Number(currentBalance).toFixed(2));
+          setCurrency(currentCurrency);
+          return;
         }
 
-        // UPDATE LIVE TICK PRICES
+        // 3. UPDATE LIVE TICK PRICES
         if (data.msg_type === "tick" && data.tick) {
           setMarketPrices((prev) => ({
             ...prev,
             [data.tick.symbol]: data.tick.quote
           }));
+          return;
         }
 
-        // PROCESS PERFORMANCE HISTORIES
-        if (data.msg_type === "profit" && data.profit) {
-          const trades = data.profit.transactions || [];
+        // 4. PROCESS PERFORMANCE HISTORIES
+        if (data.msg_type === "profit" || data.profit_table) {
+          const profitSource = data.profit || data.profit_table;
+          const trades = profitSource?.transactions || [];
           
-          if (trades.length === 0) {
+          if (!trades || trades.length === 0) {
             setWinRate("0%");
             setRiskReward("1 : 0");
             setTotalTrades("0");
@@ -88,7 +88,7 @@ export const SocketProvider = ({ children }) => {
           let lossCount = 0;
           let runningEquity = 0;
 
-          const historicalPoints = trades.reverse().map((tx, index) => {
+          const historicalPoints = [...trades].reverse().map((tx, index) => {
             const profitValue = parseFloat(tx.profit);
             runningEquity += profitValue;
 
@@ -117,7 +117,7 @@ export const SocketProvider = ({ children }) => {
           setWinRate(`${computedWinRate}%`);
           setRiskReward(computedRR);
           setEquityCurve(historicalPoints);
-          setGrowthPercentage(`${finalGrowth} ${data.profit.currency || "USD"}`);
+          setGrowthPercentage(`${finalGrowth} ${profitSource.currency || "USD"}`);
 
           if (parseFloat(computedWinRate) >= 55 && (avgWin / avgLoss) >= 1.5) {
             setDisciplineAssessment("Strong rule-based adherence and excellent drawdown control. Execution parameters indicate institutional-grade risk mitigation, high capital pool preservation, and consistent profit extraction efficiency.");
