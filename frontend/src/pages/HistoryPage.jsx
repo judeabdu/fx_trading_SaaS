@@ -1,146 +1,76 @@
-import React from "react";
-
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 
-const historyData = [
-  {
-    symbol: "XAUUSD",
-    type: "BUY",
-    lots: 0.10,
-    entry: 3321.44,
-    close: 3340.12,
-    profit: 186
-  },
-
-  {
-    symbol: "EURUSD",
-    type: "SELL",
-    lots: 0.20,
-    entry: 1.1022,
-    close: 1.0981,
-    profit: 92
-  },
-
-  {
-    symbol: "GBPUSD",
-    type: "BUY",
-    lots: 0.15,
-    entry: 1.2521,
-    close: 1.2480,
-    profit: -61
-  }
-];
-
 function HistoryPage() {
+  const [historyData, setHistoryData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch data from your backend
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        // Change this URL to your actual backend endpoint
+        const response = await fetch("/api/trades/history");
+        const data = await response.json();
+        setHistoryData(data);
+      } catch (error) {
+        console.error("Failed to fetch Deriv history:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, []);
 
   return (
-
     <DashboardLayout>
-
       <div style={containerStyle}>
-
         <div style={topRow}>
-
           <div>
-
-            <h1 style={titleStyle}>
-              Trade History
-            </h1>
-
-            <p style={subStyle}>
-              Closed execution records
-            </p>
-
+            <h1 style={titleStyle}>Trade History</h1>
+            <p style={subStyle}>Real-time Deriv execution records</p>
           </div>
-
-          <div style={badgeStyle}>
-            HISTORICAL DATA
-          </div>
-
+          <div style={badgeStyle}>LIVE DERIV DATA</div>
         </div>
 
         <div style={tableCard}>
-
           <table style={tableStyle}>
-
             <thead>
-
               <tr>
-
                 <th style={thStyle}>Symbol</th>
-                <th style={thStyle}>Type</th>
-                <th style={thStyle}>Lots</th>
-                <th style={thStyle}>Entry</th>
-                <th style={thStyle}>Close</th>
-                <th style={thStyle}>Profit</th>
-
+                <th style={thStyle}>Side</th>
+                <th style={thStyle}>Entry Price</th>
+                <th style={thStyle}>Profit/Loss</th>
+                <th style={thStyle}>Status</th>
               </tr>
-
             </thead>
-
             <tbody>
-
-              {
+              {loading ? (
+                <tr><td colSpan="5" style={tdStyle}>Loading...</td></tr>
+              ) : (
                 historyData.map((trade, i) => (
-
-                  <tr
-                    key={i}
-                    style={rowStyle}
-                  >
-
-                    <td style={tdStyle}>
-                      {trade.symbol}
+                  <tr key={i} style={rowStyle}>
+                    <td style={tdStyle}>{trade.symbol.replace('frx', '')}</td>
+                    <td style={{ ...tdStyle, color: trade.side === "BUY" ? "#10b981" : "#ef4444", fontWeight: "700" }}>
+                      {trade.side}
                     </td>
-
-                    <td style={{
-                      ...tdStyle,
-                      color:
-                        trade.type === "BUY"
-                        ? "#10b981"
-                        : "#ef4444",
-                      fontWeight: "700"
-                    }}>
-                      {trade.type}
+                    <td style={tdStyle}>{trade.entry_price}</td>
+                    <td style={{ ...tdStyle, color: trade.profit_loss >= 0 ? "#10b981" : "#ef4444", fontWeight: "700" }}>
+                      {trade.profit_loss}
                     </td>
-
-                    <td style={tdStyle}>
-                      {trade.lots}
-                    </td>
-
-                    <td style={tdStyle}>
-                      {trade.entry}
-                    </td>
-
-                    <td style={tdStyle}>
-                      {trade.close}
-                    </td>
-
-                    <td style={{
-                      ...tdStyle,
-                      color:
-                        trade.profit >= 0
-                        ? "#10b981"
-                        : "#ef4444",
-                      fontWeight: "700"
-                    }}>
-                      {trade.profit}
-                    </td>
-
+                    <td style={tdStyle}>{trade.status}</td>
                   </tr>
                 ))
-              }
-
+              )}
             </tbody>
-
           </table>
-
         </div>
-
       </div>
-
     </DashboardLayout>
   );
 }
+
+// Keep your existing styles below this line...
 
 const containerStyle = {
   color: "white"
