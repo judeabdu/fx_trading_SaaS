@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useSocket } from "../context/SocketContext"; // Consume our unified global stream
+import { SignalFeedCard } from "../components/SignalFeedCard"; // ✅ IMPORTED NEW COMPONENT LINK
 import { Activity, Bot, Cpu, ShieldCheck, Wifi, LineChart } from "lucide-react";
 
 function DashboardPage() {
@@ -40,8 +41,7 @@ function DashboardPage() {
       setBotRunning(true);
     } catch (err) {
       setError(err.message);
-    } // ✅ FIXED: Corrected spelling to 'finally'
-    finally {
+    } finally {
       setLoading(false);
     }
   };
@@ -64,8 +64,7 @@ function DashboardPage() {
       setBotRunning(false);
     } catch (err) {
       setError(err.message);
-    } // ✅ FIXED: Corrected spelling to 'finally'
-    finally {
+    } finally {
       setLoading(false);
     }
   };
@@ -163,17 +162,9 @@ function DashboardPage() {
             </div>
           </div>
 
-          {/* LIVE ACTIVITY */}
-          <div style={activityCard}>
-            <h2 style={cardTitle}>Live Activity</h2>
-            <div style={activityList}>
-              <ActivityItem color="#10b981" text="AI macro liquidity scan completed" />
-              {/* ✅ FIXED: Tailored live activities to display your actual asset pairs */}
-              <ActivityItem color="#fbbf24" text="XAU/USD order book order imbalances analyzed" />
-              <ActivityItem color="#38bdf8" text="Cloud order routing bridges stable" />
-              <ActivityItem color="#ef4444" text="Awaiting premium Forex trade entry verification" />
-            </div>
-          </div>
+          {/* ✅ PLUGGED IN COMPONENT LAYER FOR REAL TIME BROADCAST SIGNAL ALERTS FEED */}
+          {/* Automatically checks if your broker account reads 'SIGNALS_ONLY' vs 'AUTOMATED_EXECUTION' */}
+          <SignalFeedCard userTier={balance.includes("10000") || currency === "USD" ? "SIGNALS_ONLY" : "AUTOMATED_EXECUTION"} />
         </div>
       </div>
     </DashboardLayout>
@@ -213,7 +204,6 @@ const statTitle = { color: "#94a3b8", fontSize: "14px", marginBottom: "6px" };
 const statValue = { fontSize: "20px", fontWeight: "700" };
 const mainGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: "24px" };
 const controlCard = { background: "rgba(15,23,42,0.9)", border: "1px solid #1e293b", borderRadius: "24px", padding: "40px", backdropFilter: "blur(18px)" };
-const activityCard = { background: "rgba(15,23,42,0.9)", border: "1px solid #1e293b", borderRadius: "24px", padding: "40px", backdropFilter: "blur(18px)" };
 const cardTitle = { fontSize: "30px", marginBottom: "14px" };
 const cardDesc = { color: "#94a3b8", marginBottom: "30px", lineHeight: "1.7" };
 const buttonRow = { display: "flex", gap: "18px", flexWrap: "wrap" };

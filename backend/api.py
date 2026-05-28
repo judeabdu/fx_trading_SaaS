@@ -1,10 +1,17 @@
 import threading
+import asyncio
+import json
+from datetime import datetime
 from pydantic import BaseModel
-from database import engine, SessionLocal
-from models import Base, User, BrokerAccount, TradeHistory
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from fastapi import Request
 from sqlalchemy.orm import Session
+
+from database import engine, SessionLocal
+from models import Base, User, BrokerAccount, TradeHistory
 from schemas import UserCreate, UserLogin
 from auth import hash_password, verify_password, create_access_token
 from strategy import start_strategy
@@ -35,6 +42,9 @@ app.add_middleware(
 # =========================
 bot_running = False
 bot_thread = None
+
+# Stream connection pool tracking active browser canvas elements live
+SIGNAL_LISTENERS = []
 
 # =========================
 # DATABASE SESSION
@@ -68,6 +78,61 @@ def strategy_loop():
     finally:
         bot_running = False
         print("🛑 Strategy Stopped")
+
+# =========================
+# REAL-TIME SIGNAL EMITTER (SSE INTERFACE BROADCASTER)
+# =========================
+@app.get("/api/signals/stream")
+async def stream_live_signals(request: Request):
+    """
+    Persistent event streaming highway route. Keeps browser windows connected 
+    and pipes strategy signals straight into React components dynamically.
+    """
+    async def event_generator():
+        queue = asyncio.Queue()
+        SIGNAL_LISTENERS.append(queue)
+        print(f"📡 [STREAM HOOKED] Dashboard live link channels active: {len(SIGNAL_LISTENERS)}")
+        
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                
+                # Halt execution until the strategy engine drops an alert dictionary item
+                signal_payload = await queue.get()
+                yield f"data: {json.dumps(signal_payload)}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            SIGNAL_LISTENERS.remove(queue)
+            print(f"🧼 [STREAM CLOSED] Remaining link channels active: {len(SIGNAL_LISTENERS)}")
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+def broadcast_signal_to_frontend(symbol: str, side: str, entry_price: float):
+    """
+    Thread-safe background broad-caster called by your strategy script 
+    to dispatch signal alerts directly into the streaming queues.
+    """
+    payload = {
+        "symbol": symbol.replace("frx", ""),  # Strips prefix e.g. "frxXAUUSD" -> "XAUUSD"
+        "direction": side,
+        "entry": f"{entry_price:.2f}",
+        "time": datetime.now().strftime("%H:%M:%S")
+    }
+    
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    for queue in SIGNAL_LISTENERS:
+        if loop and loop.is_running():
+            loop.create_task(queue.put(payload))
+        else:
+            asyncio.run_coroutine_threadsafe(queue.put(payload), asyncio.get_event_loop())
+
 
 # =========================
 # HOME
@@ -128,7 +193,6 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
 # =========================
 @app.post("/save-broker")
 def save_broker(payload: BrokerConnectRequest, db: Session = Depends(get_db)):
-    # Look up the user matching the incoming email string
     user = db.query(User).filter(User.email == payload.email.strip()).first()
     if not user:
         raise HTTPException(
@@ -196,6 +260,22 @@ def bot_status():
     return {"running": bot_running}
 
 # =========================
+# STATUS (SYNCED FOR REACTION PATH CODES)
+# =========================
+@app.get("/status")
+def status():
+    return {
+        "running": bot_running,
+        "broker": "Deriv",
+        "mode": "Cloud API",
+        "balance": 0,
+        "equity": 0,
+        "profit": 0,
+        "currency": "USD",
+        "active_trades": []
+    }
+
+# =========================
 # ANALYTICS
 # =========================
 @app.get("/analytics")
@@ -234,20 +314,4 @@ def analytics(db: Session = Depends(get_db)):
         "losses": losses,
         "total_profit": round(total_profit, 2),
         "chart_data": chart_data
-    }
-
-# =========================
-# STATUS
-# =========================
-@app.get("/status")
-def status():
-    return {
-        "running": bot_running,
-        "broker": "Deriv",
-        "mode": "Cloud API",
-        "balance": 0,
-        "equity": 0,
-        "profit": 0,
-        "currency": "USD",
-        "active_trades": []
     }
