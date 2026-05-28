@@ -40,7 +40,7 @@ function DashboardPage() {
       setBotRunning(true);
     } catch (err) {
       setError(err.message);
-    } finally {
+    } finaly {
       setLoading(false);
     }
   };
@@ -63,16 +63,13 @@ function DashboardPage() {
       setBotRunning(false);
     } catch (err) {
       setError(err.message);
-    } finally {
+    } finaly {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Initial fetch of internal strategy cloud status
     fetchBotStatus();
-
-    // Setup an isolated, lightweight polling cycle for the backend process status
     const interval = setInterval(fetchBotStatus, 3000);
 
     return () => {
@@ -116,9 +113,10 @@ function DashboardPage() {
             title="Account Balance"
             value={balance === "Loading..." ? balance : `${currency} ${balance}`}
           />
-          <StatCard icon={<LineChart size={24} />} title="R_100 Market" value={marketPrices?.R_100 || "--"} />
-          <StatCard icon={<LineChart size={24} />} title="R_75 Market" value={marketPrices?.R_75 || "--"} />
-          <StatCard icon={<LineChart size={24} />} title="R_50 Market" value={marketPrices?.R_50 || "--"} />
+          {/* ✅ RENDER TARGET FIX: Consuming Forex/Gold properties directly from stream arrays */}
+          <StatCard icon={<LineChart size={24} />} title="Gold Spot (XAU/USD)" value={marketPrices?.frxXAUUSD || "--"} />
+          <StatCard icon={<LineChart size={24} />} title="Euro / US Dollar" value={marketPrices?.frxEURUSD || "--"} />
+          <StatCard icon={<LineChart size={24} />} title="Pound / US Dollar" value={marketPrices?.frxGBPUSD || "--"} />
           <StatCard
             icon={<Bot size={24} />}
             title="AI Engine"
@@ -134,7 +132,7 @@ function DashboardPage() {
           {/* BOT CONTROL */}
           <div style={controlCard}>
             <h2 style={cardTitle}>Automated Trading Engine</h2>
-            <p style={cardDesc}>Control your cloud-native AI Deriv execution system.</p>
+            <p style={cardDesc}>Control your cloud-native AI asset execution system.</p>
 
             {message && <div style={successBox}>{message}</div>}
             {error && <div style={errorBox}>{error}</div>}
@@ -168,10 +166,10 @@ function DashboardPage() {
           <div style={activityCard}>
             <h2 style={cardTitle}>Live Activity</h2>
             <div style={activityList}>
-              <ActivityItem color="#10b981" text="AI liquidity scan completed" />
-              <ActivityItem color="#fbbf24" text="R_100 volatility spike detected" />
+              <ActivityItem color="#10b981" text="AI macro liquidity scan completed" />
+              <ActivityItem color="#fbbf24" text="XAU/USD spread imbalance flagged" />
               <ActivityItem color="#38bdf8" text="Cloud synchronization stable" />
-              <ActivityItem color="#ef4444" text="Awaiting trade confirmation" />
+              <ActivityItem color="#ef4444" text="Awaiting target trade confirmation" />
             </div>
           </div>
         </div>

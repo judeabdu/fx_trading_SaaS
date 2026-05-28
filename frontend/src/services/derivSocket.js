@@ -2,7 +2,7 @@ let socket = null;
 
 /**
  * Establishes a highly resilient WebSocket connection to Deriv.
- * Passes clean raw data streams directly to the global context layer.
+ * Subscribes to institutional Forex and Gold spot market instruments.
  * @param {string} apiToken - Your active verified Deriv API token.
  * @param {function} onMessage - Callback handler for state distribution.
  */
@@ -24,8 +24,8 @@ export const connectDerivSocket = (apiToken, onMessage) => {
     
     socket.send(JSON.stringify(authPayload));
 
-    // Initialize market volatility tickers immediately on layout launch
-    ["R_100", "R_75", "R_50"].forEach((symbol) => {
+    // ✅ SWITCHED: Requesting Real Forex pairs and Gold Spot instead of Volatility Indices
+    ["frxXAUUSD", "frxEURUSD", "frxGBPUSD"].forEach((symbol) => {
       socket.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
     });
   };
@@ -34,14 +34,12 @@ export const connectDerivSocket = (apiToken, onMessage) => {
     try {
       const data = JSON.parse(event.data);
 
-      // Handle successful validation state parameters
       if (data.msg_type === "authorize" && !data.error) {
-        console.log("✅ Identity verified! Triggering real-time account data subscriptions...");
+        console.log("✅ Identity verified! Triggering real-time financial data subscriptions...");
         socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
         socket.send(JSON.stringify({ profit_table: 1, limit: 100 }));
       }
 
-      // Pass raw data objects to context listener untouched
       onMessage(data);
 
     } catch (err) {
