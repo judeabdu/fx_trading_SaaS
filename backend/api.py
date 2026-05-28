@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi import Request
 from sqlalchemy.orm import Session
+from sqlalchemy import text # Safely handles raw SQL actions inside SQLAlchemy 2.0
 
 from database import engine, SessionLocal
 from models import Base, User, BrokerAccount, TradeHistory
@@ -23,8 +24,31 @@ app = FastAPI()
 # =========================
 Base.metadata.create_all(bind=engine)
 
+# =========================================================
+# 🚀 SAFE ON-STARTUP COLUMN RUNTIME PATRICIAN MIGRATOR
+# =========================================================
+@app.on_event("startup")
+def migrate_subscription_column_safely():
+    """
+    Executes after the web application server is fully listening and 
+    online, patching your Render DB architecture without interrupting CORS headers.
+    """
+    db = SessionLocal()
+    try:
+        print("⏳ Verification scan: Scanning database table schema structure...")
+        db.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR(50) DEFAULT 'SIGNALS_ONLY' NOT NULL;"
+        ))
+        db.commit()
+        print("🚀 Success: Database column 'subscription_tier' verified & patched live!")
+    except Exception as e:
+        db.rollback()
+        print(f"⚠️ Notice: Structural schema sync statement bypassed: {e}")
+    finally:
+        db.close()
+
 # =========================
-# CORS
+# CORS MIDDLEWARE INTERCEPTOR
 # =========================
 app.add_middleware(
     CORSMiddleware,
