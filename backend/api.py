@@ -112,7 +112,7 @@ async def stream_live_signals(request: Request):
 
 def broadcast_signal_to_frontend(symbol: str, side: str, entry_price: float):
     """
-    Thread-safe background broad-caster called by your strategy script 
+    Thread-safe background broadcaster called by your strategy script 
     to dispatch signal alerts directly into the streaming queues.
     """
     payload = {
@@ -181,11 +181,16 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         )
     
     access_token = create_access_token({"sub": existing_user.email})
+    
+    # Safe bypass fallback check avoids crashes if database schema sync is pending
+    user_tier = getattr(existing_user, "subscription_tier", "SIGNALS_ONLY")
+    
     return {
         "message": "Login successful",
         "access_token": access_token,
         "token_type": "bearer",
-        "email": existing_user.email
+        "email": existing_user.email,
+        "subscription_tier": user_tier
     }
 
 # =========================

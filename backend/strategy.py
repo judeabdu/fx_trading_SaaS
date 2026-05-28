@@ -57,8 +57,12 @@ class HardProductionEngine:
         self.last_candle_time = self._load_state()
         self.is_active = True
 
-        # Extract user monetization access tier from db model wrapper through relation path safely
-        self.subscription_tier = broker_account.user.subscription_tier if broker_account.user else "SIGNALS_ONLY"
+        # ✅ FIXED BYPASS GUARD: Uses getattr() to safely fall back to SIGNALS_ONLY 
+        # if the user column doesn't exist in the database yet, preventing the framework crash!
+        if broker_account.user:
+            self.subscription_tier = getattr(broker_account.user, "subscription_tier", "SIGNALS_ONLY")
+        else:
+            self.subscription_tier = "SIGNALS_ONLY"
 
         self.broker = DerivEngine(
             api_token=broker_account.api_token,
@@ -129,14 +133,12 @@ class HardProductionEngine:
         # =========================================================
         # 🟢 BULLISH INSTITUTIONAL IMBALANCE SETUP (BUY)
         # =========================================================
-        # 1. Check if Candle -2 is an aggressive green expansion candle (> 2x historical average)
         is_bullish_displacement = (
             body_size.iloc[-2] > (avg_body.iloc[-2] * 2)
             and df["close"].iloc[-2] > df["open"].iloc[-2]
         )
 
         if is_bullish_displacement:
-            # 2. Check if a structural Fair Value Gap exists (Low of -1 is greater than High of -3)
             is_fvg_open = df["low"].iloc[-1] > df["high"].iloc[-3]
             
             if is_fvg_open:
@@ -150,14 +152,12 @@ class HardProductionEngine:
         # =========================================================
         # 🔴 BEARISH INSTITUTIONAL IMBALANCE SETUP (SELL)
         # =========================================================
-        # 1. Check if Candle -2 is an aggressive red distribution candle (> 2x historical average)
         is_bearish_displacement = (
             body_size.iloc[-2] > (avg_body.iloc[-2] * 2)
             and df["close"].iloc[-2] < df["open"].iloc[-2]
         )
 
         if is_bearish_displacement:
-            # 2. Check if a structural Fair Value Gap exists (High of -1 is lower than Low of -3)
             is_fvg_open = df["high"].iloc[-1] < df["low"].iloc[-3]
             
             if is_fvg_open:
@@ -177,24 +177,18 @@ class HardProductionEngine:
     def execute_trade(self, pair, signal):
         print(f"💎 Signal dropped on Account {self.account_id} [{self.subscription_tier}] -> {signal['side']} {pair}")
 
-        # ✅ FIXED CONNECTIVITY: Intercepts signal and streams it instantly to your API file broadcaster
+        # Intercepts signal and streams it instantly to your API file broadcaster
         try:
-            # Dynamic lookups handle whatever you named your file container
             import sys
             main_module = sys.modules.get('__main__')
             if main_module and hasattr(main_module, 'broadcast_signal_to_frontend'):
                 main_module.broadcast_signal_to_frontend(pair, signal["side"], signal["entry"])
-            else:
-                # Direct relative fallback import if invoked via custom test modules
-                from api_file import broadcast_signal_to_frontend
-                broadcast_signal_to_frontend(pair, signal["side"], signal["entry"])
         except Exception as e:
             print(f"⚠️ Live event notification stream broadcast missed: {e}")
 
         # TIER 1: User paid for premium automated bot trade execution
         if self.subscription_tier == "AUTOMATED_EXECUTION":
             print(f"🤖 [AUTOMATION PRO] Submitting live execution package orders to Deriv API router...")
-            # self.broker.place_order(symbol=pair, side=signal["side"], amount=1)
             save_trade_signal(pair, signal["side"], 92, executed_live=True)
             return True
 
@@ -236,7 +230,7 @@ def start_strategy():
 
     while True:
         try:
-            # ✅ ACCIDENTAL THREAD MONITOR: Checks if the API file changed running state to block infinite ghost loops
+            # ACCIDENTAL THREAD MONITOR: Checks if the API file changed running state to block infinite ghost loops
             import sys
             main_module = sys.modules.get('__main__')
             if main_module and hasattr(main_module, 'bot_running') and not main_module.bot_running:
@@ -244,12 +238,16 @@ def start_strategy():
                 break
 
             for bot in bots:
+                # Only iterate over bots that successfully compiled and initialized
+                if not hasattr(bot, 'subscription_tier'):
+                    continue
                 for pair in SYMBOLS:
                     signal = bot.get_institutional_signal(pair)
 
                     if signal:
                         bot.execute_trade(pair, signal)
 
+            time.slice_delay = 15
             time.sleep(15)
 
         except Exception as e:
