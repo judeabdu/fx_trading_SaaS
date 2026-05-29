@@ -5,8 +5,10 @@ function RegisterPage() {
 
   const navigate = useNavigate();
 
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -23,10 +25,13 @@ function RegisterPage() {
         `${import.meta.env.VITE_API_URL}/register`,
         {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json"
           },
+
           body: JSON.stringify({
+            username,
             email,
             password
           })
@@ -44,7 +49,7 @@ function RegisterPage() {
 
       alert("Registration successful");
 
-navigate("/login");
+      navigate("/login");
 
     } catch (err) {
 
@@ -80,6 +85,15 @@ navigate("/login");
             </div>
           )
         }
+
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          style={inputStyle}
+          required
+        />
 
         <input
           type="email"
@@ -139,7 +153,8 @@ const containerStyle = {
 };
 
 const cardStyle = {
-  width: "100%", maxWidth: "100%",
+  width: "100%",
+  maxWidth: "420px",
   background: "#0f172a",
   border: "1px solid #1e293b",
   borderRadius: "20px",
