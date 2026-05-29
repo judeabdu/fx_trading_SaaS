@@ -134,22 +134,19 @@ async def register(request: Request, db: Session = Depends(get_db)):
         body = await request.json()
         print("RAW BODY:", body)
 
-        username = body.get("username")
         email = body.get("email")
         password = body.get("password")
 
-        if not email:
-            raise HTTPException(400, "Email required")
+        email = body.get("email")
+password = body.get("password")
 
-        if not password:
-            raise HTTPException(400, "Password required")
+if not email:
+    raise HTTPException(400, "Email required")
 
-        # auto username
-        if not username:
-            username = email.split("@")[0]
+if not password:
+    raise HTTPException(400, "Password required")
 
-        username = username.strip()
-        email = email.strip()
+email = email.strip()
 
         # check user
         existing_user = db.query(User).filter(User.email == email).first()
@@ -161,7 +158,6 @@ async def register(request: Request, db: Session = Depends(get_db)):
         hashed_password = hash_password(password)
 
         new_user = User(
-            username=username,
             email=email,
             password=hashed_password
         )
