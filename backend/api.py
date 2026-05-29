@@ -146,18 +146,63 @@ def status():
 # REGISTER
 # =========================================================
 
+from fastapi import Body
+
+# =========================================================
+# REGISTER
+# =========================================================
+
 @app.post("/register")
-def register(
-    user: UserCreate,
+async def register(
+
+    request: Request,
+
     db: Session = Depends(get_db)
+
 ):
 
     try:
 
-        print("REGISTER REQUEST:", user)
+        # RAW JSON BODY
+        body = await request.json()
+
+        print("RAW BODY:", body)
+
+        username = body.get("username")
+        email = body.get("email")
+        password = body.get("password")
+
+        # =========================
+        # VALIDATION
+        # =========================
+
+        if not username:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Username required"
+            )
+
+        if not email:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Email required"
+            )
+
+        if not password:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Password required"
+            )
+
+        # =========================
+        # CHECK USER
+        # =========================
 
         existing_user = db.query(User).filter(
-            User.email == user.email.strip()
+            User.email == email.strip()
         ).first()
 
         if existing_user:
@@ -167,13 +212,21 @@ def register(
                 detail="Email already exists"
             )
 
+        # =========================
+        # HASH PASSWORD
+        # =========================
+
         hashed_password = hash_password(
-            user.password
+            password
         )
 
+        # =========================
+        # CREATE USER
+        # =========================
+
         new_user = User(
-            username=user.username.strip(),
-            email=user.email.strip(),
+            username=username.strip(),
+            email=email.strip(),
             password=hashed_password,
             subscription_tier="SIGNALS_ONLY"
         )
@@ -183,6 +236,10 @@ def register(
         db.commit()
 
         db.refresh(new_user)
+
+        # =========================
+        # TOKEN
+        # =========================
 
         access_token = create_access_token(
             data={
@@ -210,19 +267,6 @@ def register(
             status_code=500,
             detail=str(e)
         )
-
-    return {
-        "message": "Registration successful",
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": new_user.id,
-            "username": new_user.username,
-            "email": new_user.email,
-            "subscription_tier": new_user.subscription_tier
-        }
-    }
-
 # =========================================================
 # LOGIN
 # =========================================================
