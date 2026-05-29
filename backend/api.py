@@ -154,18 +154,12 @@ from fastapi import Body
 
 @app.post("/register")
 async def register(
-
     request: Request,
-
     db: Session = Depends(get_db)
-
 ):
 
     try:
-
-        # RAW JSON BODY
         body = await request.json()
-
         print("RAW BODY:", body)
 
         username = body.get("username")
@@ -173,68 +167,54 @@ async def register(
         password = body.get("password")
 
         # =========================
-        # VALIDATION
+        # VALIDATION (SAFE)
         # =========================
-
-        if not username:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Username required"
-            )
 
         if not email:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Email required"
-            )
+            raise HTTPException(status_code=400, detail="Email required")
 
         if not password:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Password required"
-            )
+            raise HTTPException(status_code=400, detail="Password required")
 
         # =========================
-        # CHECK USER
+        # AUTO-GENERATE USERNAME (FIX)
+        # =========================
+        if not username:
+            username = email.split("@")[0]
+
+        username = username.strip()
+        email = email.strip()
+
+        # =========================
+        # CHECK USER EXISTS
         # =========================
 
         existing_user = db.query(User).filter(
-            User.email == email.strip()
+            User.email == email
         ).first()
 
         if existing_user:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Email already exists"
-            )
+            raise HTTPException(status_code=400, detail="Email already exists")
 
         # =========================
         # HASH PASSWORD
         # =========================
 
-        hashed_password = hash_password(
-            password
-        )
+        hashed_password = hash_password(password)
 
         # =========================
         # CREATE USER
         # =========================
 
         new_user = User(
-            username=username.strip(),
-            email=email.strip(),
+            username=username,
+            email=email,
             password=hashed_password,
             subscription_tier="SIGNALS_ONLY"
         )
 
         db.add(new_user)
-
         db.commit()
-
         db.refresh(new_user)
 
         # =========================
@@ -242,9 +222,7 @@ async def register(
         # =========================
 
         access_token = create_access_token(
-            data={
-                "sub": new_user.email
-            }
+            data={"sub": new_user.email}
         )
 
         return {
@@ -259,14 +237,12 @@ async def register(
             }
         }
 
+    except HTTPException as he:
+        raise he
+
     except Exception as e:
-
         print("REGISTER ERROR:", str(e))
-
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail="Internal server error")
 # =========================================================
 # LOGIN
 # =========================================================
