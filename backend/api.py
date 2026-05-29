@@ -2,7 +2,6 @@ import threading
 import asyncio
 import json
 from datetime import datetime
-from pydantic import BaseModel
 
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,37 +12,80 @@ from sqlalchemy import text
 from database import engine, SessionLocal
 from models import Base, User, BrokerAccount, TradeHistory
 from schemas import UserCreate, UserLogin
-from auth import hash_password, verify_password, create_access_token
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token
+)
+
 from strategy import start_strategy
 
-app = FastAPI()
+# =========================================================
+# FASTAPI INIT
+# =========================================================
+
+app = FastAPI(
+    title="FX Trading SaaS API",
+    version="1.0.0"
+)
 
 # =========================================================
-# DATABASE SETUP
+# GLOBAL STATE
 # =========================================================
-Base.metadata.create_all(bind=engine)
 
-@app.on_event("startup")
-def migrate_subscription_column_safely():
+bot_running = False
+SIGNAL_LISTENERS = []
+
+# =========================================================
+# DATABASE DEPENDENCY
+# =========================================================
+
+def get_db():
     db = SessionLocal()
     try:
+        yield db
+    finally:
+        db.close()
+
+# =========================================================
+# STARTUP EVENTS
+# =========================================================
+
+@app.on_event("startup")
+def startup_tasks():
+
+    print("🔥 APP STARTING")
+
+    db = SessionLocal()
+
+    try:
+
+        # Create tables safely
+        Base.metadata.create_all(bind=engine)
+
+        # Safe migrations
         db.execute(text("""
-            ALTER TABLE users 
-            ADD COLUMN IF NOT EXISTS subscription_tier 
-            VARCHAR(50) DEFAULT 'SIGNALS_ONLY' NOT NULL;
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS subscription_tier
+            VARCHAR(50)
+            DEFAULT 'SIGNALS_ONLY'
+            NOT NULL;
         """))
 
         db.execute(text("""
-            ALTER TABLE broker_accounts 
-            ADD COLUMN IF NOT EXISTS is_active 
+            ALTER TABLE broker_accounts
+            ADD COLUMN IF NOT EXISTS is_active
             BOOLEAN DEFAULT FALSE;
         """))
 
         db.commit()
 
+        print("✅ Database Ready")
+
     except Exception as e:
+
         db.rollback()
-        print(f"⚠️ Notice: Schema sync issue: {e}")
+        print(f"❌ Startup Error: {e}")
 
     finally:
         db.close()
@@ -51,6 +93,7 @@ def migrate_subscription_column_safely():
 # =========================================================
 # CORS
 # =========================================================
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -63,45 +106,51 @@ app.add_middleware(
 )
 
 # =========================================================
-# GLOBAL STATE
+# ROOT
 # =========================================================
-bot_running = False
-SIGNAL_LISTENERS = []
 
-# =========================================================
-# DATABASE DEPENDENCY
-# =========================================================
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@app.get("/")
+def root():
+    return {
+        "message": "FX Trading SaaS Backend Running",
+        "broker": "Deriv",
+        "status": "online"
+    }
 
 # =========================================================
-# STRATEGY LOOP
+# HEALTH CHECK
 # =========================================================
-def strategy_loop():
-    global bot_running
 
-    print("🚀 Strategy Engine Started")
-
-    try:
-        start_strategy()
-
-    except Exception as e:
-        print(f"❌ Strategy Error: {e}")
-
-    finally:
-        bot_running = False
-        print("🛑 Strategy Stopped")
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "time": str(datetime.utcnow())
+    }
 
 # =========================================================
-# AUTH ROUTES
+# STATUS
+# =========================================================
+
+@app.get("/status")
+def status():
+
+    return {
+        "running": bot_running,
+        "broker": "Deriv",
+        "mode": "Cloud API",
+        "server_time": str(datetime.utcnow())
+    }
+
+# =========================================================
+# REGISTER
 # =========================================================
 
 @app.post("/register")
-def register(user: UserCreate, db: Session = Depends(get_db)):
+def register(
+    user: UserCreate,
+    db: Session = Depends(get_db)
+):
 
     existing_user = db.query(User).filter(
         User.email == user.email.strip()
@@ -110,7 +159,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(
             status_code=400,
-            detail="Email already registered"
+            detail="Email already exists"
         )
 
     hashed_password = hash_password(user.password)
@@ -144,8 +193,15 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         }
     }
 
+# =========================================================
+# LOGIN
+# =========================================================
+
 @app.post("/login")
-def login(user: UserLogin, db: Session = Depends(get_db)):
+def login(
+    user: UserLogin,
+    db: Session = Depends(get_db)
+):
 
     db_user = db.query(User).filter(
         User.email == user.email.strip()
@@ -157,7 +213,12 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
             detail="Invalid email or password"
         )
 
-    if not verify_password(user.password, db_user.password):
+    password_valid = verify_password(
+        user.password,
+        db_user.password
+    )
+
+    if not password_valid:
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
@@ -182,43 +243,39 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     }
 
 # =========================================================
-# SSE STREAM
+# STRATEGY LOOP
 # =========================================================
-@app.get("/api/signals/stream")
-async def stream_live_signals(request: Request):
 
-    async def event_generator():
+def strategy_loop():
 
-        queue = asyncio.Queue()
-        SIGNAL_LISTENERS.append(queue)
+    global bot_running
 
-        try:
-            while True:
+    print("🚀 Strategy Engine Started")
 
-                if await request.is_disconnected():
-                    break
+    try:
 
-                signal_payload = await queue.get()
+        start_strategy()
 
-                yield f"data: {json.dumps(signal_payload)}\n\n"
+    except Exception as e:
 
-        finally:
-            SIGNAL_LISTENERS.remove(queue)
+        print(f"❌ Strategy Error: {e}")
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream"
-    )
+    finally:
+
+        bot_running = False
+        print("🛑 Strategy Stopped")
 
 # =========================================================
 # START BOT
 # =========================================================
+
 @app.post("/start-bot")
-def start_bot(db: Session = Depends(get_db)):
+def start_bot(
+    db: Session = Depends(get_db)
+):
 
     global bot_running
 
-    # Update DB Switch
     account = db.query(BrokerAccount).first()
 
     if account:
@@ -226,6 +283,7 @@ def start_bot(db: Session = Depends(get_db)):
         db.commit()
 
     if not bot_running:
+
         bot_running = True
 
         threading.Thread(
@@ -240,8 +298,11 @@ def start_bot(db: Session = Depends(get_db)):
 # =========================================================
 # STOP BOT
 # =========================================================
+
 @app.post("/stop-bot")
-def stop_bot(db: Session = Depends(get_db)):
+def stop_bot(
+    db: Session = Depends(get_db)
+):
 
     global bot_running
 
@@ -258,40 +319,80 @@ def stop_bot(db: Session = Depends(get_db)):
     }
 
 # =========================================================
-# STATUS
+# LIVE SIGNAL STREAM
 # =========================================================
-@app.get("/status")
-def status():
 
-    return {
-        "running": bot_running,
-        "broker": "Deriv",
-        "mode": "Cloud API",
-        "server_time": str(datetime.utcnow())
-    }
+@app.get("/api/signals/stream")
+async def stream_live_signals(
+    request: Request
+):
+
+    async def event_generator():
+
+        queue = asyncio.Queue()
+
+        SIGNAL_LISTENERS.append(queue)
+
+        try:
+
+            while True:
+
+                if await request.is_disconnected():
+                    break
+
+                signal_payload = await queue.get()
+
+                yield f"data: {json.dumps(signal_payload)}\n\n"
+
+        except asyncio.CancelledError:
+            pass
+
+        finally:
+
+            if queue in SIGNAL_LISTENERS:
+                SIGNAL_LISTENERS.remove(queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream"
+    )
 
 # =========================================================
 # ANALYTICS
 # =========================================================
+
 @app.get("/analytics")
-def analytics(db: Session = Depends(get_db)):
+def analytics(
+    db: Session = Depends(get_db)
+):
 
     trades = db.query(TradeHistory).all()
 
-    wins = len([t for t in trades if getattr(t, "profit", 0) > 0])
-
     total = len(trades)
 
-    win_rate = (wins / total * 100) if total > 0 else 0
+    wins = len([
+        t for t in trades
+        if getattr(t, "profit", 0) > 0
+    ])
+
+    losses = total - wins
+
+    win_rate = (
+        (wins / total) * 100
+        if total > 0 else 0
+    )
 
     return {
-        "win_rate": round(win_rate, 2),
-        "total_trades": total
+        "total_trades": total,
+        "wins": wins,
+        "losses": losses,
+        "win_rate": round(win_rate, 2)
     }
 
 # =========================================================
-# DEV TOOLS
+# DEV UPGRADE USER
 # =========================================================
+
 @app.post("/dev/upgrade-user")
 def upgrade_user_tier(
     email: str,
@@ -304,6 +405,7 @@ def upgrade_user_tier(
     ).first()
 
     if not user:
+
         raise HTTPException(
             status_code=404,
             detail="User not found"
@@ -314,15 +416,5 @@ def upgrade_user_tier(
     db.commit()
 
     return {
-        "message": f"User {email} set to {tier}"
-    }
-
-# =========================================================
-# ROOT
-# =========================================================
-@app.get("/")
-def root():
-
-    return {
-        "message": "FX Trading SaaS Backend Running"
+        "message": f"User {email} upgraded to {tier}"
     }
