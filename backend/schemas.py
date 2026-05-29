@@ -1,27 +1,29 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
-# =========================
+# =========================================================
 # USER SCHEMAS
-# =========================
+# =========================================================
 
 class UserCreate(BaseModel):
 
-    email: str
+    username: str
+
+    email: EmailStr
 
     password: str
 
 
 class UserLogin(BaseModel):
 
-    email: str
+    email: EmailStr
 
     password: str
 
 
-# =========================
+# =========================================================
 # BROKER ACCOUNT SCHEMAS
-# =========================
+# =========================================================
 
 class BrokerAccountCreate(BaseModel):
 
@@ -36,10 +38,32 @@ class BrokerAccountCreate(BaseModel):
     risk_per_trade: float
 
 
-# =========================
-# OPTIONAL RESPONSE SCHEMA
-# =========================
+# =========================================================
+# OPTIONAL RESPONSE SCHEMAS
+# =========================================================
 
 class BrokerResponse(BaseModel):
 
     message: str
+
+
+class AuthResponse(BaseModel):
+
+    message: str
+
+    access_token: str
+
+    token_type: str
+
+    user: dict
+
+
+class StatusResponse(BaseModel):
+
+    running: bool
+
+    broker: str
+
+    mode: str
+
+    server_time: str
