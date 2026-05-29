@@ -152,34 +152,64 @@ def register(
     db: Session = Depends(get_db)
 ):
 
-    existing_user = db.query(User).filter(
-        User.email == user.email.strip()
-    ).first()
+    try:
 
-    if existing_user:
-        raise HTTPException(
-            status_code=400,
-            detail="Email already exists"
+        print("REGISTER REQUEST:", user)
+
+        existing_user = db.query(User).filter(
+            User.email == user.email.strip()
+        ).first()
+
+        if existing_user:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Email already exists"
+            )
+
+        hashed_password = hash_password(
+            user.password
         )
 
-    hashed_password = hash_password(user.password)
+        new_user = User(
+            username=user.username.strip(),
+            email=user.email.strip(),
+            password=hashed_password,
+            subscription_tier="SIGNALS_ONLY"
+        )
 
-    new_user = User(
-        username=user.username,
-        email=user.email.strip(),
-        password=hashed_password,
-        subscription_tier="SIGNALS_ONLY"
-    )
+        db.add(new_user)
 
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+        db.commit()
 
-    access_token = create_access_token(
-        data={
-            "sub": new_user.email
+        db.refresh(new_user)
+
+        access_token = create_access_token(
+            data={
+                "sub": new_user.email
+            }
+        )
+
+        return {
+            "message": "Registration successful",
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": new_user.id,
+                "username": new_user.username,
+                "email": new_user.email,
+                "subscription_tier": new_user.subscription_tier
+            }
         }
-    )
+
+    except Exception as e:
+
+        print("REGISTER ERROR:", str(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
     return {
         "message": "Registration successful",
