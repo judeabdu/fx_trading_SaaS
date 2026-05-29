@@ -12,16 +12,11 @@ from sqlalchemy import text
 from database import engine, SessionLocal
 from models import Base, User, BrokerAccount, TradeHistory
 from schemas import UserCreate, UserLogin
-from auth import (
-    hash_password,
-    verify_password,
-    create_access_token
-)
-
+from auth import hash_password, verify_password, create_access_token
 from strategy import start_strategy
 
 # =========================================================
-# FASTAPI INIT
+# APP INIT
 # =========================================================
 
 app = FastAPI(
@@ -37,7 +32,7 @@ bot_running = False
 SIGNAL_LISTENERS = []
 
 # =========================================================
-# DATABASE DEPENDENCY
+# DB SESSION
 # =========================================================
 
 def get_db():
@@ -48,34 +43,22 @@ def get_db():
         db.close()
 
 # =========================================================
-# STARTUP EVENTS
+# STARTUP
 # =========================================================
 
 @app.on_event("startup")
 def startup_tasks():
-
     print("🔥 APP STARTING")
 
     db = SessionLocal()
 
     try:
-
-        # Create tables safely
         Base.metadata.create_all(bind=engine)
 
-        # Safe migrations
-        db.execute(text("""
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS subscription_tier
-            VARCHAR(50)
-            DEFAULT 'SIGNALS_ONLY'
-            NOT NULL;
-        """))
-
+        # Safe migration only for broker_accounts
         db.execute(text("""
             ALTER TABLE broker_accounts
-            ADD COLUMN IF NOT EXISTS is_active
-            BOOLEAN DEFAULT FALSE;
+            ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE;
         """))
 
         db.commit()
@@ -83,7 +66,6 @@ def startup_tasks():
         print("✅ Database Ready")
 
     except Exception as e:
-
         db.rollback()
         print(f"❌ Startup Error: {e}")
 
@@ -118,7 +100,7 @@ def root():
     }
 
 # =========================================================
-# HEALTH CHECK
+# HEALTH
 # =========================================================
 
 @app.get("/health")
@@ -134,7 +116,6 @@ def health():
 
 @app.get("/status")
 def status():
-
     return {
         "running": bot_running,
         "broker": "Deriv",
@@ -146,17 +127,8 @@ def status():
 # REGISTER
 # =========================================================
 
-from fastapi import Body
-
-# =========================================================
-# REGISTER
-# =========================================================
-
 @app.post("/register")
-async def register(
-    request: Request,
-    db: Session = Depends(get_db)
-):
+async def register(request: Request, db: Session = Depends(get_db)):
 
     try:
         body = await request.json()
@@ -166,74 +138,48 @@ async def register(
         email = body.get("email")
         password = body.get("password")
 
-        # =========================
-        # VALIDATION (SAFE)
-        # =========================
-
         if not email:
-            raise HTTPException(status_code=400, detail="Email required")
+            raise HTTPException(400, "Email required")
 
         if not password:
-            raise HTTPException(status_code=400, detail="Password required")
+            raise HTTPException(400, "Password required")
 
-        # =========================
-        # AUTO-GENERATE USERNAME (FIX)
-        # =========================
+        # auto username
         if not username:
             username = email.split("@")[0]
 
         username = username.strip()
         email = email.strip()
 
-        # =========================
-        # CHECK USER EXISTS
-        # =========================
-
-        existing_user = db.query(User).filter(
-            User.email == email
-        ).first()
+        # check user
+        existing_user = db.query(User).filter(User.email == email).first()
 
         if existing_user:
-            raise HTTPException(status_code=400, detail="Email already exists")
+            raise HTTPException(400, "Email already exists")
 
-        # =========================
-        # HASH PASSWORD
-        # =========================
-
+        # create user
         hashed_password = hash_password(password)
-
-        # =========================
-        # CREATE USER
-        # =========================
 
         new_user = User(
             username=username,
             email=email,
-            password=hashed_password,
-            subscription_tier="SIGNALS_ONLY"
+            password=hashed_password
         )
 
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
 
-        # =========================
-        # TOKEN
-        # =========================
-
-        access_token = create_access_token(
-            data={"sub": new_user.email}
-        )
+        token = create_access_token({"sub": new_user.email})
 
         return {
             "message": "Registration successful",
-            "access_token": access_token,
+            "access_token": token,
             "token_type": "bearer",
             "user": {
                 "id": new_user.id,
                 "username": new_user.username,
-                "email": new_user.email,
-                "subscription_tier": new_user.subscription_tier
+                "email": new_user.email
             }
         }
 
@@ -241,88 +187,57 @@ async def register(
         raise he
 
     except Exception as e:
-        print("REGISTER ERROR:", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        print("REGISTER ERROR:", repr(e))
+        raise HTTPException(500, "Internal server error")
+
 # =========================================================
 # LOGIN
 # =========================================================
 
 @app.post("/login")
-def login(
-    user: UserLogin,
-    db: Session = Depends(get_db)
-):
+def login(user: UserLogin, db: Session = Depends(get_db)):
 
-    db_user = db.query(User).filter(
-        User.email == user.email.strip()
-    ).first()
+    db_user = db.query(User).filter(User.email == user.email.strip()).first()
 
     if not db_user:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
+        raise HTTPException(401, "Invalid email or password")
 
-    password_valid = verify_password(
-        user.password,
-        db_user.password
-    )
+    if not verify_password(user.password, db_user.password):
+        raise HTTPException(401, "Invalid email or password")
 
-    if not password_valid:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
-
-    access_token = create_access_token(
-        data={
-            "sub": db_user.email
-        }
-    )
+    token = create_access_token({"sub": db_user.email})
 
     return {
         "message": "Login successful",
-        "access_token": access_token,
+        "access_token": token,
         "token_type": "bearer",
         "user": {
             "id": db_user.id,
             "username": db_user.username,
-            "email": db_user.email,
-            "subscription_tier": db_user.subscription_tier
+            "email": db_user.email
         }
     }
 
 # =========================================================
-# STRATEGY LOOP
+# BOT START
 # =========================================================
 
 def strategy_loop():
-
     global bot_running
 
-    print("🚀 Strategy Engine Started")
-
     try:
-
+        print("🚀 Strategy Engine Started")
         start_strategy()
 
     except Exception as e:
-
-        print(f"❌ Strategy Error: {e}")
+        print("Strategy Error:", e)
 
     finally:
-
         bot_running = False
         print("🛑 Strategy Stopped")
 
-# =========================================================
-# START BOT
-# =========================================================
-
 @app.post("/start-bot")
-def start_bot(
-    db: Session = Depends(get_db)
-):
+def start_bot(db: Session = Depends(get_db)):
 
     global bot_running
 
@@ -333,26 +248,17 @@ def start_bot(
         db.commit()
 
     if not bot_running:
-
         bot_running = True
+        threading.Thread(target=strategy_loop, daemon=True).start()
 
-        threading.Thread(
-            target=strategy_loop,
-            daemon=True
-        ).start()
-
-    return {
-        "message": "Bot activated"
-    }
+    return {"message": "Bot activated"}
 
 # =========================================================
-# STOP BOT
+# BOT STOP
 # =========================================================
 
 @app.post("/stop-bot")
-def stop_bot(
-    db: Session = Depends(get_db)
-):
+def stop_bot(db: Session = Depends(get_db)):
 
     global bot_running
 
@@ -364,107 +270,51 @@ def stop_bot(
 
     bot_running = False
 
-    return {
-        "message": "Bot deactivated"
-    }
+    return {"message": "Bot deactivated"}
 
 # =========================================================
-# LIVE SIGNAL STREAM
+# STREAM SIGNALS
 # =========================================================
 
 @app.get("/api/signals/stream")
-async def stream_live_signals(
-    request: Request
-):
+async def stream_live_signals(request: Request):
 
     async def event_generator():
 
         queue = asyncio.Queue()
-
         SIGNAL_LISTENERS.append(queue)
 
         try:
-
             while True:
 
                 if await request.is_disconnected():
                     break
 
-                signal_payload = await queue.get()
-
-                yield f"data: {json.dumps(signal_payload)}\n\n"
-
-        except asyncio.CancelledError:
-            pass
+                data = await queue.get()
+                yield f"data: {json.dumps(data)}\n\n"
 
         finally:
-
             if queue in SIGNAL_LISTENERS:
                 SIGNAL_LISTENERS.remove(queue)
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream"
-    )
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # =========================================================
 # ANALYTICS
 # =========================================================
 
 @app.get("/analytics")
-def analytics(
-    db: Session = Depends(get_db)
-):
+def analytics(db: Session = Depends(get_db)):
 
     trades = db.query(TradeHistory).all()
 
     total = len(trades)
-
-    wins = len([
-        t for t in trades
-        if getattr(t, "profit", 0) > 0
-    ])
-
+    wins = len([t for t in trades if getattr(t, "profit", 0) > 0])
     losses = total - wins
-
-    win_rate = (
-        (wins / total) * 100
-        if total > 0 else 0
-    )
 
     return {
         "total_trades": total,
         "wins": wins,
         "losses": losses,
-        "win_rate": round(win_rate, 2)
-    }
-
-# =========================================================
-# DEV UPGRADE USER
-# =========================================================
-
-@app.post("/dev/upgrade-user")
-def upgrade_user_tier(
-    email: str,
-    tier: str = "AUTOMATED_EXECUTION",
-    db: Session = Depends(get_db)
-):
-
-    user = db.query(User).filter(
-        User.email == email.strip()
-    ).first()
-
-    if not user:
-
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
-        )
-
-    user.subscription_tier = tier
-
-    db.commit()
-
-    return {
-        "message": f"User {email} upgraded to {tier}"
+        "win_rate": round((wins / total) * 100, 2) if total else 0
     }
