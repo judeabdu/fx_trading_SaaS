@@ -18,112 +18,68 @@ function RegisterPage() {
 
   const handleRegister = async (e) => {
 
-    e.preventDefault();
+  e.preventDefault();
 
-    setError("");
+  setError("");
 
-    // =========================
-    // BASIC VALIDATION
-    // =========================
+  console.log("USERNAME:", username);
+  console.log("EMAIL:", email);
+  console.log("PASSWORD:", password);
 
-    if (
-      !username.trim() ||
-      !email.trim() ||
-      !password.trim()
-    ) {
-      setError("All fields are required");
-      return;
-    }
+  try {
 
-    if (password.length < 6) {
-      setError(
-        "Password must be at least 6 characters"
-      );
-      return;
-    }
+    setLoading(true);
 
-    try {
+    const payload = {
+      username: username,
+      email: email,
+      password: password
+    };
 
-      setLoading(true);
+    console.log("PAYLOAD:", payload);
 
-      const response = await fetch(
-        `${API_URL}/register`,
-        {
-          method: "POST",
+    const response = await fetch(
+      `${API_URL}/register`,
+      {
+        method: "POST",
 
-          headers: {
-            "Content-Type": "application/json"
-          },
+        headers: {
+          "Content-Type": "application/json"
+        },
 
-          body: JSON.stringify({
-            username: username.trim(),
-            email: email.trim(),
-            password: password.trim()
-          })
-        }
-      );
-
-      // =========================
-      // SAFE JSON PARSE
-      // =========================
-
-      let data = {};
-
-      try {
-
-        data = await response.json();
-
-      } catch {
-
-        data = {};
+        body: JSON.stringify(payload)
       }
+    );
 
-      console.log("REGISTER RESPONSE:", data);
+    const data = await response.json();
 
-      // =========================
-      // HANDLE FASTAPI ERRORS
-      // =========================
+    console.log("SERVER RESPONSE:", data);
 
-      if (!response.ok) {
+    if (!response.ok) {
 
-        // FastAPI validation errors
-        if (Array.isArray(data.detail)) {
-
-          const messages = data.detail
-            .map((err) => err.msg)
-            .join(", ");
-
-          throw new Error(messages);
-        }
-
-        throw new Error(
-          data.detail ||
-          "Registration failed"
-        );
-      }
-
-      // =========================
-      // SUCCESS
-      // =========================
-
-      alert("Registration successful!");
-
-      navigate("/login");
-
-    } catch (err) {
-
-      console.error(err);
-
-      setError(
-        err.message ||
-        "Something went wrong"
+      throw new Error(
+        data.detail || "Registration failed"
       );
-
-    } finally {
-
-      setLoading(false);
     }
-  };
+
+    alert("Registration successful!");
+
+    navigate("/login");
+
+  } catch (err) {
+
+    console.error(err);
+
+    setError(
+      err.message ||
+      "Something went wrong"
+    );
+
+  } finally {
+
+    setLoading(false);
+  }
+};
 
   return (
 
