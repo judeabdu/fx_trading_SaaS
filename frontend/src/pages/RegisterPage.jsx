@@ -12,17 +12,42 @@ function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const API_URL =
+    import.meta.env.VITE_API_URL ||
+    "https://fx-trading-saas-1.onrender.com";
+
   const handleRegister = async (e) => {
 
     e.preventDefault();
 
-    setLoading(true);
     setError("");
+
+    // =========================
+    // BASIC VALIDATION
+    // =========================
+
+    if (
+      !username.trim() ||
+      !email.trim() ||
+      !password.trim()
+    ) {
+      setError("All fields are required");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError(
+        "Password must be at least 6 characters"
+      );
+      return;
+    }
 
     try {
 
+      setLoading(true);
+
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/register`,
+        `${API_URL}/register`,
         {
           method: "POST",
 
@@ -31,29 +56,68 @@ function RegisterPage() {
           },
 
           body: JSON.stringify({
-            username,
-            email,
-            password
+            username: username.trim(),
+            email: email.trim(),
+            password: password.trim()
           })
         }
       );
 
-      const data = await response.json();
+      // =========================
+      // SAFE JSON PARSE
+      // =========================
+
+      let data = {};
+
+      try {
+
+        data = await response.json();
+
+      } catch {
+
+        data = {};
+      }
+
+      console.log("REGISTER RESPONSE:", data);
+
+      // =========================
+      // HANDLE FASTAPI ERRORS
+      // =========================
 
       if (!response.ok) {
 
+        // FastAPI validation errors
+        if (Array.isArray(data.detail)) {
+
+          const messages = data.detail
+            .map((err) => err.msg)
+            .join(", ");
+
+          throw new Error(messages);
+        }
+
         throw new Error(
-          data.detail || "Registration failed"
+          data.detail ||
+          "Registration failed"
         );
       }
 
-      alert("Registration successful");
+      // =========================
+      // SUCCESS
+      // =========================
+
+      alert("Registration successful!");
 
       navigate("/login");
 
     } catch (err) {
 
-      setError(err.message);
+      console.error(err);
+
+      setError(
+        err.message ||
+        "Something went wrong"
+      );
 
     } finally {
 
@@ -90,7 +154,9 @@ function RegisterPage() {
           type="text"
           placeholder="Username"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) =>
+            setUsername(e.target.value)
+          }
           style={inputStyle}
           required
         />
@@ -99,7 +165,9 @@ function RegisterPage() {
           type="email"
           placeholder="Email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) =>
+            setEmail(e.target.value)
+          }
           style={inputStyle}
           required
         />
@@ -108,21 +176,29 @@ function RegisterPage() {
           type="password"
           placeholder="Password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) =>
+            setPassword(e.target.value)
+          }
           style={inputStyle}
           required
         />
 
         <button
           type="submit"
-          style={buttonStyle}
+          style={
+            loading
+              ? disabledButtonStyle
+              : buttonStyle
+          }
           disabled={loading}
         >
+
           {
             loading
               ? "Creating Account..."
               : "Register"
           }
+
         </button>
 
         <div style={footerStyle}>
@@ -144,12 +220,18 @@ function RegisterPage() {
   );
 }
 
+// ======================================================
+// STYLES
+// ======================================================
+
 const containerStyle = {
   minHeight: "100vh",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  background: "#020617"
+  background:
+    "linear-gradient(to bottom right, #020617, #0f172a)",
+  padding: "20px"
 };
 
 const cardStyle = {
@@ -161,18 +243,23 @@ const cardStyle = {
   padding: "40px",
   display: "flex",
   flexDirection: "column",
-  gap: "18px"
+  gap: "18px",
+  boxShadow:
+    "0 0 40px rgba(0,0,0,0.45)"
 };
 
 const titleStyle = {
   color: "white",
   fontSize: "32px",
-  marginBottom: "4px"
+  fontWeight: "700",
+  marginBottom: "4px",
+  textAlign: "center"
 };
 
 const subStyle = {
   color: "#64748b",
-  marginBottom: "18px"
+  marginBottom: "18px",
+  textAlign: "center"
 };
 
 const inputStyle = {
@@ -181,7 +268,8 @@ const inputStyle = {
   border: "1px solid #334155",
   background: "#020617",
   color: "white",
-  fontSize: "15px"
+  fontSize: "15px",
+  outline: "none"
 };
 
 const buttonStyle = {
@@ -190,7 +278,15 @@ const buttonStyle = {
   padding: "16px",
   borderRadius: "12px",
   fontWeight: "700",
-  cursor: "pointer"
+  cursor: "pointer",
+  fontSize: "15px",
+  transition: "0.3s"
+};
+
+const disabledButtonStyle = {
+  ...buttonStyle,
+  opacity: 0.6,
+  cursor: "not-allowed"
 };
 
 const footerStyle = {
@@ -202,7 +298,8 @@ const footerStyle = {
 const linkStyle = {
   color: "#fbbf24",
   marginLeft: "6px",
-  textDecoration: "none"
+  textDecoration: "none",
+  fontWeight: "600"
 };
 
 const errorStyle = {
@@ -211,7 +308,8 @@ const errorStyle = {
   color: "#ef4444",
   padding: "12px",
   borderRadius: "10px",
-  fontSize: "14px"
+  fontSize: "14px",
+  textAlign: "center"
 };
 
 export default RegisterPage;
