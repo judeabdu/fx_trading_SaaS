@@ -137,26 +137,33 @@ async def register(request: Request, db: Session = Depends(get_db)):
         email = body.get("email")
         password = body.get("password")
 
-        email = body.get("email")
-password = body.get("password")
+        # =========================
+        # VALIDATION
+        # =========================
+        if not email:
+            raise HTTPException(status_code=400, detail="Email required")
 
-if not email:
-    raise HTTPException(400, "Email required")
+        if not password:
+            raise HTTPException(status_code=400, detail="Password required")
 
-if not password:
-    raise HTTPException(400, "Password required")
+        email = email.strip()
 
-email = email.strip()
-
-        # check user
+        # =========================
+        # CHECK USER
+        # =========================
         existing_user = db.query(User).filter(User.email == email).first()
 
         if existing_user:
-            raise HTTPException(400, "Email already exists")
+            raise HTTPException(status_code=400, detail="Email already exists")
 
-        # create user
+        # =========================
+        # HASH PASSWORD
+        # =========================
         hashed_password = hash_password(password)
 
+        # =========================
+        # CREATE USER (NO USERNAME NOW)
+        # =========================
         new_user = User(
             email=email,
             password=hashed_password
@@ -174,7 +181,6 @@ email = email.strip()
             "token_type": "bearer",
             "user": {
                 "id": new_user.id,
-                "username": new_user.username,
                 "email": new_user.email
             }
         }
@@ -184,7 +190,7 @@ email = email.strip()
 
     except Exception as e:
         print("REGISTER ERROR:", repr(e))
-        raise HTTPException(500, "Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # =========================================================
 # LOGIN
