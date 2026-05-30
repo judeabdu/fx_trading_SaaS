@@ -14,6 +14,7 @@ from models import Base, User, BrokerAccount, TradeHistory
 from schemas import UserCreate, UserLogin
 from auth import hash_password, verify_password, create_access_token
 from strategy import start_strategy
+
 # =========================================================
 # APP INIT
 # =========================================================
