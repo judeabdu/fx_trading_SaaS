@@ -51,7 +51,6 @@ def startup_tasks():
     print("🔥 APP STARTING")
 
     db = SessionLocal()
-
     try:
         Base.metadata.create_all(bind=engine)
 
@@ -60,35 +59,28 @@ def startup_tasks():
             ALTER TABLE broker_accounts
             ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE;
         """))
-
         db.commit()
-
         print("✅ Database Ready")
-
     except Exception as e:
         db.rollback()
         print(f"❌ Startup Error: {e}")
-
     finally:
         db.close()
 
 # =========================================================
-# CORS
+# CORS (FIXED ALL ALLOWED ORIGINS)
 # =========================================================
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://fx-trading-saa-s.vercel.app"
-    ],
+    allow_origins=["*"],  # Set to ["*"] temporarily to ensure your Render apps can communicate freely without blocking
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
 # =========================================================
-# ROOT
+# ROOT & HEALTH
 # =========================================================
 
 @app.get("/")
@@ -99,20 +91,12 @@ def root():
         "status": "online"
     }
 
-# =========================================================
-# HEALTH
-# =========================================================
-
 @app.get("/health")
 def health():
     return {
         "status": "healthy",
         "time": str(datetime.utcnow())
     }
-
-# =========================================================
-# STATUS
-# =========================================================
 
 @app.get("/status")
 def status():
@@ -124,126 +108,124 @@ def status():
     }
 
 # =========================================================
-# REGISTER
+# AUTHENTICATION
 # =========================================================
 
 @app.post("/register")
 async def register(request: Request, db: Session = Depends(get_db)):
-
     try:
         body = await request.json()
-        print("RAW BODY:", body)
-
         email = body.get("email")
         password = body.get("password")
 
-        # =========================
-        # VALIDATION
-        # =========================
-        if not email:
-            raise HTTPException(status_code=400, detail="Email required")
-
-        if not password:
-            raise HTTPException(status_code=400, detail="Password required")
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and Password required")
 
         email = email.strip()
-
-        # =========================
-        # CHECK USER
-        # =========================
         existing_user = db.query(User).filter(User.email == email).first()
-
         if existing_user:
             raise HTTPException(status_code=400, detail="Email already exists")
 
-        # =========================
-        # HASH PASSWORD
-        # =========================
         hashed_password = hash_password(password)
-
-        # =========================
-        # CREATE USER (NO USERNAME NOW)
-        # =========================
-        new_user = User(
-            email=email,
-            password=hashed_password
-        )
+        new_user = User(email=email, password=hashed_password)
 
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
 
         token = create_access_token({"sub": new_user.email})
-
         return {
             "message": "Registration successful",
             "access_token": token,
             "token_type": "bearer",
-            "user": {
-                "id": new_user.id,
-                "email": new_user.email
-            }
+            "user": {"id": new_user.id, "email": new_user.email}
         }
-
     except HTTPException as he:
         raise he
-
     except Exception as e:
         print("REGISTER ERROR:", repr(e))
         raise HTTPException(status_code=500, detail="Internal server error")
 
-# =========================================================
-# LOGIN
-# =========================================================
-
 @app.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
-
     db_user = db.query(User).filter(User.email == user.email.strip()).first()
-
-    if not db_user:
-        raise HTTPException(401, "Invalid email or password")
-
-    if not verify_password(user.password, db_user.password):
+    if not db_user or not verify_password(user.password, db_user.password):
         raise HTTPException(401, "Invalid email or password")
 
     token = create_access_token({"sub": db_user.email})
-
     return {
-    "message": "Login successful",
-    "access_token": token,
-    "token_type": "bearer",
-    "user": {
-        "id": db_user.id,
-        "email": db_user.email
+        "message": "Login successful",
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {"id": db_user.id, "email": db_user.email}
     }
-}
 
 # =========================================================
-# BOT START
+# NEW: FIXED SAVE BROKER ENDPOINT (Matches React format exactly)
+# =========================================================
+
+@app.post("/api/save-broker")
+async def save_broker(request: Request, db: Session = Depends(get_db)):
+    try:
+        body = await request.json()
+        email = body.get("email")
+        api_token = body.get("api_token")
+        broker_name = body.get("broker_name", "Deriv")
+        app_id = str(body.get("app_id", "1089"))
+
+        if not email or not api_token:
+            raise HTTPException(status_code=400, detail="Missing required email or token identification.")
+
+        # Match user
+        user = db.query(User).filter(User.email == email.strip()).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User account profile not found.")
+
+        # Sync configuration record
+        account = db.query(BrokerAccount).filter(BrokerAccount.user_id == user.id).first()
+        if account:
+            account.broker_name = broker_name
+            account.api_token = api_token.strip()
+            account.app_id = app_id
+            account.is_active = True
+        else:
+            account = BrokerAccount(
+                user_id=user.id,
+                broker_name=broker_name,
+                api_token=api_token.strip(),
+                app_id=app_id,
+                is_active=True
+            )
+            db.add(account)
+
+        db.commit()
+        return {"status": "success", "message": "Broker profile verified and linked successfully."}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        db.rollback()
+        print("❌ BROKER SAVE ERROR:", repr(e))
+        raise HTTPException(status_code=500, detail="Internal server error saving credentials")
+
+# =========================================================
+# BOT CONTROLS
 # =========================================================
 
 def strategy_loop():
     global bot_running
-
     try:
         print("🚀 Strategy Engine Started")
         start_strategy()
-
     except Exception as e:
         print("Strategy Error:", e)
-
     finally:
         bot_running = False
         print("🛑 Strategy Stopped")
 
 @app.post("/start-bot")
 def start_bot(db: Session = Depends(get_db)):
-
     global bot_running
-
     account = db.query(BrokerAccount).first()
-
     if account:
         account.is_active = True
         db.commit()
@@ -251,26 +233,16 @@ def start_bot(db: Session = Depends(get_db)):
     if not bot_running:
         bot_running = True
         threading.Thread(target=strategy_loop, daemon=True).start()
-
     return {"message": "Bot activated"}
-
-# =========================================================
-# BOT STOP
-# =========================================================
 
 @app.post("/stop-bot")
 def stop_bot(db: Session = Depends(get_db)):
-
     global bot_running
-
     account = db.query(BrokerAccount).first()
-
     if account:
         account.is_active = False
         db.commit()
-
     bot_running = False
-
     return {"message": "Bot deactivated"}
 
 # =========================================================
@@ -279,25 +251,18 @@ def stop_bot(db: Session = Depends(get_db)):
 
 @app.get("/api/signals/stream")
 async def stream_live_signals(request: Request):
-
     async def event_generator():
-
         queue = asyncio.Queue()
         SIGNAL_LISTENERS.append(queue)
-
         try:
             while True:
-
                 if await request.is_disconnected():
                     break
-
                 data = await queue.get()
                 yield f"data: {json.dumps(data)}\n\n"
-
         finally:
             if queue in SIGNAL_LISTENERS:
                 SIGNAL_LISTENERS.remove(queue)
-
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # =========================================================
@@ -306,13 +271,10 @@ async def stream_live_signals(request: Request):
 
 @app.get("/analytics")
 def analytics(db: Session = Depends(get_db)):
-
     trades = db.query(TradeHistory).all()
-
     total = len(trades)
     wins = len([t for t in trades if getattr(t, "profit", 0) > 0])
     losses = total - wins
-
     return {
         "total_trades": total,
         "wins": wins,
