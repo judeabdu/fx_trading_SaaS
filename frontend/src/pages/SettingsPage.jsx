@@ -95,9 +95,9 @@ const response = await fetch(
               Active Trading Pairs
             </div>
             <div style={pairList}>
-              <span style={pairBadge}>R_100</span>
-              <span style={pairBadge}>R_75</span>
-              <span style={pairBadge}>R_50</span>
+              <span style={pairBadge}>frXAUUSD</span>
+              <span style={pairBadge}>frEURUSD</span>
+              <span style={pairBadge}>frGBPUSD</span>
             </div>
           </div>
 
