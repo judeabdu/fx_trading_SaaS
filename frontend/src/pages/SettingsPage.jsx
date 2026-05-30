@@ -27,9 +27,10 @@ function SettingsPage() {
 
     try {
       // 2. Fetch Request sending exact keys expected by FastAPI BrokerConnectRequest schema
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/save-broker`,
-        {
+      // Change line 29 to this:
+const response = await fetch(
+  `${import.meta.env.VITE_API_URL}/api/save-broker`, 
+  {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
